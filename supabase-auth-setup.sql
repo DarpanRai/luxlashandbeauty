@@ -120,14 +120,17 @@ begin
     values (lower(trim(p_target_email)), extensions.crypt(p_target_password, extensions.gen_salt('bf')), p_target_role, p_target_name)
     returning accounts.id into v_id;
   else
-    select role into v_current_role from accounts where id = p_target_id;
+    -- Column-qualified (a.role / a.id), not bare — RETURNS TABLE above creates an
+    -- implicit "role" output variable in this function's scope, so an unqualified
+    -- `role` here is genuinely ambiguous to Postgres, not just to a human reader.
+    select a.role into v_current_role from accounts a where a.id = p_target_id;
     if v_current_role is null then
       raise exception 'Account not found';
     end if;
 
     -- Block demoting the last remaining owner — that would lock everyone out.
     if v_current_role = 'owner' and p_target_role <> 'owner' then
-      select count(*) into v_owner_count from accounts where role = 'owner';
+      select count(*) into v_owner_count from accounts a where a.role = 'owner';
       if v_owner_count <= 1 then
         raise exception 'Cannot change the role of the last owner account';
       end if;

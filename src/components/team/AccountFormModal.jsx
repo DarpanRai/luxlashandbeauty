@@ -33,7 +33,7 @@ export default function AccountFormModal({ initial, isSelf, onCancel, onSave, sa
         <div className="modal-body">
           <label className="field">
             <span className="label">Email</span>
-            <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+            <input className="input" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} required />
           </label>
           <label className="field">
             <span className="label">Name</span>
@@ -59,9 +59,10 @@ export default function AccountFormModal({ initial, isSelf, onCancel, onSave, sa
             <input
               className="input"
               type="password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder={initial ? "••••••••" : "At least 6 characters"}
+              placeholder={initial ? "Leave blank to keep current password" : "At least 6 characters"}
             />
           </label>
           {error && <div className="field-error">{error}</div>}
