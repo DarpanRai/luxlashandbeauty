@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { WifiOff, ServerCrash } from "lucide-react";
 import { DEFAULT_SERVICES } from "./constants/services.js";
 import { generateId } from "./utils/id.js";
 import { getTodayISO } from "./utils/date.js";
 import { useStorage } from "./hooks/useStorage.js";
-import { ToastProvider } from "./context/ToastContext.jsx";
+import { useOnlineStatus } from "./hooks/useOnlineStatus.js";
 import Sidebar from "./components/layout/Sidebar.jsx";
 import LoginScreen from "./components/layout/LoginScreen.jsx";
 import ConfirmDialog from "./components/common/ConfirmDialog.jsx";
+import FullScreenError from "./components/common/FullScreenError.jsx";
 import OverviewDashboard from "./components/dashboard/OverviewDashboard.jsx";
 import CategoryPage from "./components/customers/CategoryPage.jsx";
 import StaffPage from "./components/staff/StaffPage.jsx";
@@ -70,13 +72,15 @@ const STAFF_BLOCKED_VIEWS = new Set(["overview", "staff", "team"]);
 const STAFF_FALLBACK_VIEW = "makeup";
 
 export default function App() {
-  const [customers, setCustomers, customersLoaded] = useStorage("studio_customers", []);
-  const [products, setProducts, productsLoaded] = useStorage("studio_products", []);
-  const [sellItems, setSellItems, sellItemsLoaded] = useStorage("studio_sell_items", []);
-  const [services, , servicesLoaded] = useStorage("studio_services", DEFAULT_SERVICES);
-  const [staff, setStaff, staffLoaded] = useStorage("studio_staff", []);
-  const [studioExpenses, setStudioExpenses, studioExpensesLoaded] = useStorage("studio_general_expenses", []);
-  const [staffSalaries, setStaffSalaries, staffSalariesLoaded] = useStorage("studio_staff_salaries", []);
+  const [customers, setCustomers, customersLoaded, customersError] = useStorage("studio_customers", []);
+  const [products, setProducts, productsLoaded, productsError] = useStorage("studio_products", []);
+  const [sellItems, setSellItems, sellItemsLoaded, sellItemsError] = useStorage("studio_sell_items", []);
+  const [services, , servicesLoaded, servicesError] = useStorage("studio_services", DEFAULT_SERVICES);
+  const [staff, setStaff, staffLoaded, staffError] = useStorage("studio_staff", []);
+  const [studioExpenses, setStudioExpenses, studioExpensesLoaded, studioExpensesError] = useStorage("studio_general_expenses", []);
+  const [staffSalaries, setStaffSalaries, staffSalariesLoaded, staffSalariesError] = useStorage("studio_staff_salaries", []);
+  const online = useOnlineStatus();
+  const wasOffline = useRef(false);
   const [view, setViewState] = useState(getViewFromLocation);
   const [authenticated, setAuthenticatedState] = useState(getStoredAuth);
   const [role, setRoleState] = useState(getStoredRole);
@@ -120,6 +124,18 @@ export default function App() {
   };
 
   const loaded = customersLoaded && productsLoaded && sellItemsLoaded && servicesLoaded && staffLoaded && studioExpensesLoaded && staffSalariesLoaded;
+  // Any one of these failing means the app can't show trustworthy data — better to say
+  // so plainly than let a section quietly render as "0 customers" when it's really
+  // "couldn't load customers". navigator.onLine already ruled out "no internet" by the
+  // time this is checked, so this specifically means Supabase itself is unreachable.
+  const storageError = customersError || productsError || sellItemsError || servicesError || staffError || studioExpensesError || staffSalariesError;
+
+  // If we were offline and just came back, do a full reload rather than trying to
+  // patch up whichever fetches failed mid-outage — simpler and more reliable.
+  useEffect(() => {
+    if (!online) wasOffline.current = true;
+    else if (wasOffline.current) window.location.reload();
+  }, [online]);
 
   const setView = (nextView) => {
     setViewState(nextView);
@@ -176,6 +192,32 @@ export default function App() {
     const otherCategoryItems = sellItems.filter((p) => p.category !== view);
     setSellItems([...otherCategoryItems, ...nextForCategory]);
   };
+  if (!online) {
+    return (
+      <div className="app-root">
+        <FullScreenError
+          icon={WifiOff}
+          title="No internet connection"
+          message="This device isn't connected right now. Reconnect and this page will pick back up automatically."
+        />
+      </div>
+    );
+  }
+
+  if (storageError) {
+    return (
+      <div className="app-root">
+        <FullScreenError
+          icon={ServerCrash}
+          title="Can't reach the database"
+          message="Your studio data couldn't be loaded. This is usually temporary — try again in a moment."
+          actionLabel="Try again"
+          onAction={() => window.location.reload()}
+        />
+      </div>
+    );
+  }
+
   if (!authenticated) {
     return (
       <div className="app-root">
@@ -186,11 +228,10 @@ export default function App() {
 
   return (
     <div className="app-root">
-      <ToastProvider>
-        <div className="app-shell">
-          <Sidebar view={renderedView} role={role} onViewChange={setView} onLogout={() => setLogoutConfirmOpen(true)} />
+      <div className="app-shell">
+        <Sidebar view={renderedView} role={role} onViewChange={setView} onLogout={() => setLogoutConfirmOpen(true)} />
 
-          <main className="main-area">
+        <main className="main-area">
             {!loaded ? (
               <div className="loading-state">Loading studio data…</div>
             ) : renderedView === "overview" ? (
@@ -222,20 +263,19 @@ export default function App() {
                 onSellItemsChange={handleSellItemsChange}
               />
             )}
-          </main>
-        </div>
+        </main>
+      </div>
 
-        {logoutConfirmOpen && (
-          <ConfirmDialog
-            title="Log out?"
-            message="You'll need to log back in to access the admin panel."
-            confirmLabel="Log out"
-            confirmColor="var(--primary)"
-            onCancel={() => setLogoutConfirmOpen(false)}
-            onConfirm={() => { setLogoutConfirmOpen(false); setAuthenticated(false); setView("overview"); }}
-          />
-        )}
-      </ToastProvider>
+      {logoutConfirmOpen && (
+        <ConfirmDialog
+          title="Log out?"
+          message="You'll need to log back in to access the admin panel."
+          confirmLabel="Log out"
+          confirmColor="var(--primary)"
+          onCancel={() => setLogoutConfirmOpen(false)}
+          onConfirm={() => { setLogoutConfirmOpen(false); setAuthenticated(false); setView("overview"); }}
+        />
+      )}
     </div>
   );
 }
