@@ -27,16 +27,6 @@ jobs:
 
       - run: npm ci
 
-      # Temporary diagnostic — prints only lengths, never the actual secret values.
-      # Remove once the "0 length" issue is confirmed fixed.
-      - name: Check secrets are wired up
-        run: |
-          echo "VITE_SUPABASE_URL length: ${#VITE_SUPABASE_URL}"
-          echo "VITE_SUPABASE_ANON_KEY length: ${#VITE_SUPABASE_ANON_KEY}"
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-
       - run: npm run build
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
