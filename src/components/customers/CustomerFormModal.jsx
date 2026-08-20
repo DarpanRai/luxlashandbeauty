@@ -1,0 +1,337 @@
+import { useState } from "react";
+import { X } from "lucide-react";
+import { getTodayISO, PROJECT_START_DATE } from "../../utils/date.js";
+import { formatMoney, LASH_REMOVAL_PRICE } from "../../utils/format.js";
+import { DEFAULT_ADDONS } from "../../constants/addons.js";
+import { REFILL_OPTIONS } from "../../constants/refills.js";
+
+const PHONE_DIGITS_MIN = 10;
+const PHONE_DIGITS_MAX = 15;
+
+// Add-ons (hairstyling extras) only apply to the Party Makeup service — the
+// bridal packages don't offer them.
+const MAKEUP_ADDON_SERVICE_ID = "s-m3";
+
+export default function CustomerFormModal({ meta, category, initial, prefill, services, onCancel, onSave, lockContact }) {
+  const [form, setForm] = useState(() =>
+    initial
+      ? { ...initial }
+      : prefill
+      ? { ...prefill }
+      : {
+          name: "",
+          address: "",
+          phone: "",
+          email: "",
+          instagram: "",
+          birthday: "",
+          appointmentDate: getTodayISO(),
+          serviceId: services[0]?.id || "",
+          lashRemoval: false,
+          refillId: "",
+          discount: 0,
+          advance: 0,
+          addonIds: [],
+          status: "upcoming",
+        }
+  );
+  const locked = !!initial && initial.status === "completed";
+  const contactLocked = lockContact || !!prefill;
+  const addons = DEFAULT_ADDONS.filter((a) => a.category === category);
+  // Lash removal or a refill can be booked on its own — once either is added, the main service is optional.
+  const serviceOptional = category === "luxlash" && (form.lashRemoval || !!form.refillId);
+  const hasBookableItem = !!form.serviceId || serviceOptional;
+  const addonsVisible = category !== "makeup" || form.serviceId === MAKEUP_ADDON_SERVICE_ID;
+  const [errors, setErrors] = useState({});
+
+  const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  const validate = () => {
+    const next = {};
+    if (!form.name.trim()) next.name = "Full name is required.";
+    if (!form.address.trim()) next.address = "Address is required.";
+    if (!form.appointmentDate.trim()) next.appointmentDate = "Appointment booked date is required.";
+    else if (form.appointmentDate < PROJECT_START_DATE)
+      next.appointmentDate = "The studio started in August 2026 — pick a date from then on.";
+    if (!form.serviceId && !serviceOptional) next.serviceId = "Service is required.";
+    if (!form.status) next.status = "Status is required.";
+    const phoneDigits = form.phone.replace(/\D/g, "");
+    if (!phoneDigits) next.phone = "Phone number is required.";
+    else if (phoneDigits.length < PHONE_DIGITS_MIN || phoneDigits.length > PHONE_DIGITS_MAX)
+      next.phone = `Phone number must be ${PHONE_DIGITS_MIN}–${PHONE_DIGITS_MAX} digits.`;
+    return next;
+  };
+
+  // Checking lash removal defaults the main service back to "none" — the customer can
+  // still pick a service afterward to combine it with lash removal, but the default on
+  // first check is removal-only, not whatever service happened to be selected before.
+  const handleLashRemovalToggle = (checked) => {
+    setForm((f) => ({ ...f, lashRemoval: checked, serviceId: checked ? "" : f.serviceId }));
+  };
+
+  // Same rule as lash removal — picking a refill defaults the main service back to
+  // "none"; the customer can still pick a service afterward to combine them.
+  const handleRefillSelect = (value) => {
+    setForm((f) => ({ ...f, refillId: value, serviceId: value ? "" : f.serviceId }));
+  };
+
+  const handleServiceSelect = (value) => {
+    const addonsStillApply = category !== "makeup" || value === MAKEUP_ADDON_SERVICE_ID;
+    setForm((f) => ({ ...f, serviceId: value, discount: 0, addonIds: addonsStillApply ? f.addonIds : [] }));
+  };
+
+  const toggleAddon = (id) => {
+    setForm((f) => {
+      const current = f.addonIds || [];
+      const next = current.includes(id) ? current.filter((a) => a !== id) : [...current, id];
+      return { ...f, addonIds: next };
+    });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const nextErrors = validate();
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
+    const advance = Number(form.advance) || 0;
+    // advanceDate tracks when the advance was actually collected, so revenue lands in the
+    // right month even when the appointment itself is scheduled for a later month. It's
+    // only (re)stamped with today when the advance amount actually changes — editing
+    // something else on an existing appointment shouldn't move its advance's date.
+    const previousAdvance = initial ? Number(initial.advance) || 0 : 0;
+    const advanceDate =
+      advance > 0 && advance !== previousAdvance
+        ? getTodayISO()
+        : advance > 0
+        ? initial?.advanceDate || getTodayISO()
+        : undefined;
+    onSave({ ...form, discount: Number(form.discount) || 0, advance, advanceDate });
+  };
+
+  return (
+    <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onCancel()}>
+      <form className="modal" onSubmit={handleSubmit}>
+        <div className="modal-header">
+          <h2>{initial ? `Edit ${meta.label.toLowerCase()} customer` : prefill ? `New appointment` : `Add ${meta.label.toLowerCase()} customer`}</h2>
+          <button type="button" className="icon-btn" onClick={onCancel}><X size={18} /></button>
+        </div>
+        <div className="modal-body">
+          {prefill && (
+            <div className="notice">
+              Rebooking {prefill.name} — this creates a new appointment; their past visit and revenue stay on record.
+              Contact details are locked here — update them from the Customers tab.
+            </div>
+          )}
+          {locked && (
+            <div className="notice">
+              This appointment is completed — only contact details can be edited.
+              {category === "luxlash" ? " Use Rebook to schedule a new visit." : ""}
+            </div>
+          )}
+          {lockContact && !prefill && (
+            <div className="notice">Editing this appointment — contact details are locked. Update contact info from the Customers tab.</div>
+          )}
+          <label className="field">
+            <span className="label">Full name</span>
+            <input
+              className={`input${errors.name ? " invalid" : ""}`}
+              value={form.name}
+              onChange={(e) => setField("name", e.target.value)}
+              placeholder="Ankita Paudyl"
+              disabled={contactLocked}
+            />
+            {errors.name && <span className="field-error">{errors.name}</span>}
+          </label>
+          <label className="field">
+            <span className="label">Address</span>
+            <input
+              className={`input${errors.address ? " invalid" : ""}`}
+              value={form.address}
+              onChange={(e) => setField("address", e.target.value)}
+              placeholder="Imadol Ga Bi Sa"
+              disabled={contactLocked}
+            />
+            {errors.address && <span className="field-error">{errors.address}</span>}
+          </label>
+          <label className="field">
+            <span className="label">Phone number</span>
+            <input
+              className={`input${errors.phone ? " invalid" : ""}`}
+              value={form.phone}
+              onChange={(e) => setField("phone", e.target.value)}
+              placeholder="+977-97********"
+              disabled={contactLocked}
+            />
+            {errors.phone && <span className="field-error">{errors.phone}</span>}
+          </label>
+          <label className="field">
+            <span className="label">Email address <span className="label-hint">(optional)</span></span>
+            <input
+              className="input"
+              type="email"
+              value={form.email || ""}
+              onChange={(e) => setField("email", e.target.value)}
+              placeholder="ankitapaudyl@gmail.com"
+              disabled={contactLocked}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Instagram name <span className="label-hint">(optional)</span></span>
+            <input
+              className="input"
+              value={form.instagram || ""}
+              onChange={(e) => setField("instagram", e.target.value)}
+              placeholder="@ankitapaudyl"
+              disabled={contactLocked}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Birthday <span className="label-hint">(optional — shows a reminder on their card)</span></span>
+            <input
+              type="date"
+              className="input"
+              value={form.birthday || ""}
+              onChange={(e) => setField("birthday", e.target.value)}
+              disabled={contactLocked}
+            />
+          </label>
+          <label className="field">
+            <span className="label">Appointment booked date</span>
+            <input
+              type="date"
+              className={`input${errors.appointmentDate ? " invalid" : ""}`}
+              min={PROJECT_START_DATE}
+              value={form.appointmentDate}
+              onChange={(e) => setField("appointmentDate", e.target.value)}
+              disabled={locked}
+            />
+            {errors.appointmentDate && <span className="field-error">{errors.appointmentDate}</span>}
+          </label>
+          {category === "luxlash" && (
+            <div className="field">
+              <span className="label">Lash removal</span>
+              <div className="addon-list">
+                <label className="addon-option">
+                  <input
+                    type="checkbox"
+                    checked={!!form.lashRemoval}
+                    onChange={(e) => handleLashRemovalToggle(e.target.checked)}
+                    disabled={locked}
+                  />
+                  Add lash removal — {formatMoney(LASH_REMOVAL_PRICE)}
+                </label>
+              </div>
+            </div>
+          )}
+
+          <label className="field">
+            <span className="label">
+              Service{" "}
+              <span className="label-hint">
+                {serviceOptional
+                  ? `(optional — ${form.lashRemoval ? "lash removal" : "refill"} already added)`
+                  : "(used to calculate revenue)"}
+              </span>
+            </span>
+            <select
+              className={`input${errors.serviceId ? " invalid" : ""}`}
+              value={form.serviceId}
+              onChange={(e) => handleServiceSelect(e.target.value)}
+              disabled={locked}
+            >
+              <option value="" disabled={!serviceOptional}>
+                {serviceOptional ? "No other service" : "Select a service"}
+              </option>
+              {services.map((s) => (<option key={s.id} value={s.id}>{s.name} — {formatMoney(s.price)}</option>))}
+            </select>
+            {errors.serviceId && <span className="field-error">{errors.serviceId}</span>}
+          </label>
+
+          {category === "luxlash" && (
+            <label className="field">
+              <span className="label">Refill</span>
+              <select
+                className="input"
+                value={form.refillId || ""}
+                onChange={(e) => handleRefillSelect(e.target.value)}
+                disabled={locked}
+              >
+                <option value="">No refill</option>
+                {["Classic Refill", "Light Volume (2D) Refill", "Wet Lash Refill"].map((group) => (
+                  <optgroup key={group} label={group}>
+                    {REFILL_OPTIONS.filter((r) => r.group === group).map((r) => (
+                      <option key={r.id} value={r.id}>{r.duration} — {formatMoney(r.price)}</option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          )}
+
+          {addonsVisible && addons.length > 0 && (
+            <div className="field">
+              <span className="label">Add-ons</span>
+              <div className="addon-list">
+                {addons.map((a) => (
+                  <label key={a.id} className="addon-option">
+                    <input
+                      type="checkbox"
+                      checked={(form.addonIds || []).includes(a.id)}
+                      onChange={() => toggleAddon(a.id)}
+                      disabled={locked}
+                    />
+                    {a.name} — {formatMoney(a.price)}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasBookableItem && (
+            <label className="field">
+              <span className="label">Advance <span className="label-hint">(already collected — part of the total, not extra)</span></span>
+              <input
+                className="input"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.advance}
+                onChange={(e) => setField("advance", e.target.value)}
+                placeholder="0.00"
+                disabled={locked}
+              />
+            </label>
+          )}
+
+          {form.serviceId && (
+            <label className="field">
+              <span className="label">Discount</span>
+              <input
+                className="input"
+                type="number"
+                step="0.01"
+                value={form.discount}
+                onChange={(e) => setField("discount", e.target.value)}
+                placeholder="0.00"
+                disabled={locked}
+              />
+            </label>
+          )}
+
+          <label className="field">
+            <span className="label">Status</span>
+            <select className="input" value={form.status} onChange={(e) => setField("status", e.target.value)} disabled={locked}>
+              <option value="upcoming">Upcoming</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+          </label>
+        </div>
+        <div className="modal-footer">
+          <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>
+          <button type="submit" className="btn btn-primary" style={{ background: meta.accent }}>{initial ? "Save changes" : prefill ? "Add appointment" : "Add customer"}</button>
+        </div>
+      </form>
+    </div>
+  );
+}

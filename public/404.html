@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>LuxLash & Beauty</title>
+    <script type="text/javascript">
+      // GitHub Pages has no server-side routing, so a direct visit or refresh on e.g.
+      // /luxlashandbeauty/makeup 404s here. This encodes the intended path into a query
+      // string and redirects to index.html, which decodes it back (see index.html) so
+      // the app's own client-side router still lands on the right page.
+      // Pattern: https://github.com/rafgraph/spa-github-pages
+      var pathSegmentsToKeep = 1; // keeps "/luxlashandbeauty" as the base path
+      var l = window.location;
+      l.replace(
+        l.protocol + "//" + l.hostname + (l.port ? ":" + l.port : "") +
+        l.pathname.split("/").slice(0, 1 + pathSegmentsToKeep).join("/") + "/?/" +
+        l.pathname.slice(1).split("/").slice(pathSegmentsToKeep).join("/").replace(/&/g, "~and~") +
+        (l.search ? "&" + l.search.slice(1).replace(/&/g, "~and~") : "") +
+        l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>

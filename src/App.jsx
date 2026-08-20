@@ -1,0 +1,208 @@
+import { useEffect, useState } from "react";
+import { DEFAULT_SERVICES } from "./constants/services.js";
+import { generateId } from "./utils/id.js";
+import { getTodayISO } from "./utils/date.js";
+import { useStorage } from "./hooks/useStorage.js";
+import { ToastProvider } from "./context/ToastContext.jsx";
+import Sidebar from "./components/layout/Sidebar.jsx";
+import LoginScreen from "./components/layout/LoginScreen.jsx";
+import ConfirmDialog from "./components/common/ConfirmDialog.jsx";
+import OverviewDashboard from "./components/dashboard/OverviewDashboard.jsx";
+import CategoryPage from "./components/customers/CategoryPage.jsx";
+import StaffPage from "./components/staff/StaffPage.jsx";
+import GeneralExpensesPage from "./components/expenses/GeneralExpensesPage.jsx";
+
+const VIEW_PATHS = {
+  overview: "dashboard",
+  makeup: "makeup",
+  luxlash: "luxlash",
+  staff: "staff",
+  expenses: "expenses",
+};
+const PATH_VIEWS = Object.fromEntries(Object.entries(VIEW_PATHS).map(([viewKey, path]) => [path, viewKey]));
+
+// "/" locally, "/luxlashandbeauty/" once built for GitHub Pages (see vite.config.ts) —
+// every route read/write below goes through this so the app works unchanged in both.
+const BASE_PATH = import.meta.env.BASE_URL;
+
+const viewPath = (view) => `${BASE_PATH}${VIEW_PATHS[view] || "dashboard"}`.replace(/\/{2,}/g, "/");
+
+const getViewFromLocation = () => {
+  let path = window.location.pathname;
+  if (path.startsWith(BASE_PATH)) path = path.slice(BASE_PATH.length);
+  path = path.replace(/^\/+|\/+$/g, "");
+  return PATH_VIEWS[path] || "overview";
+};
+
+// sessionStorage (not localStorage): survives a refresh within the tab, but clears
+// when the tab/browser closes — avoids leaving the admin panel signed in forever
+// on a shared front-desk computer.
+const AUTH_KEY = "ct_authenticated";
+const ROLE_KEY = "ct_role";
+const getStoredAuth = () => {
+  try {
+    return sessionStorage.getItem(AUTH_KEY) === "true";
+  } catch {
+    return false;
+  }
+};
+const getStoredRole = () => {
+  try {
+    return sessionStorage.getItem(ROLE_KEY) || "owner";
+  } catch {
+    return "owner";
+  }
+};
+
+// Views a "staff" role account can never land on, even via a bookmarked/typed URL.
+const STAFF_BLOCKED_VIEWS = new Set(["overview", "staff"]);
+const STAFF_FALLBACK_VIEW = "makeup";
+
+export default function App() {
+  const [customers, setCustomers, customersLoaded] = useStorage("studio_customers", []);
+  const [products, setProducts, productsLoaded] = useStorage("studio_products", []);
+  const [sellItems, setSellItems, sellItemsLoaded] = useStorage("studio_sell_items", []);
+  const [services, , servicesLoaded] = useStorage("studio_services", DEFAULT_SERVICES);
+  const [staff, setStaff, staffLoaded] = useStorage("studio_staff", []);
+  const [studioExpenses, setStudioExpenses, studioExpensesLoaded] = useStorage("studio_general_expenses", []);
+  const [staffSalaries, setStaffSalaries, staffSalariesLoaded] = useStorage("studio_staff_salaries", []);
+  const [view, setViewState] = useState(getViewFromLocation);
+  const [authenticated, setAuthenticatedState] = useState(getStoredAuth);
+  const [role, setRoleState] = useState(getStoredRole);
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+
+  // account is the matched entry from ACCOUNTS on login (undefined on logout).
+  const setAuthenticated = (next, account) => {
+    setAuthenticatedState(next);
+    setRoleState(next && account?.role ? account.role : "owner");
+    try {
+      if (next) {
+        sessionStorage.setItem(AUTH_KEY, "true");
+        sessionStorage.setItem(ROLE_KEY, account?.role || "owner");
+      } else {
+        sessionStorage.removeItem(AUTH_KEY);
+        sessionStorage.removeItem(ROLE_KEY);
+      }
+    } catch {
+      // sessionStorage unavailable (e.g. private browsing) — auth still works for this tab session
+    }
+  };
+
+  const loaded = customersLoaded && productsLoaded && sellItemsLoaded && servicesLoaded && staffLoaded && studioExpensesLoaded && staffSalariesLoaded;
+
+  const setView = (nextView) => {
+    setViewState(nextView);
+    const path = viewPath(nextView);
+    if (window.location.pathname !== path) window.history.pushState({}, "", path);
+  };
+
+  useEffect(() => {
+    const path = viewPath(view);
+    if (window.location.pathname !== path) window.history.replaceState({}, "", path);
+    const handlePopState = () => setViewState(getViewFromLocation());
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // A staff account can't reach the Studio Dashboard or Staff's section — not even via a
+  // bookmarked/typed URL. Redirects the real view+URL; renderedView below also covers the
+  // one-render gap before this effect runs, so nothing forbidden ever flashes on screen.
+  useEffect(() => {
+    if (role === "staff" && STAFF_BLOCKED_VIEWS.has(view)) setView(STAFF_FALLBACK_VIEW);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, view]);
+  const renderedView = role === "staff" && STAFF_BLOCKED_VIEWS.has(view) ? STAFF_FALLBACK_VIEW : view;
+
+  const handleAddCustomer = (data) =>
+    setCustomers([...customers, { id: generateId(), category: view, ...data, bookingDate: getTodayISO() }]);
+  const handleEditCustomer = (id, data) => setCustomers(customers.map((c) => (c.id === id ? { ...c, ...data } : c)));
+  const handleDeleteCustomer = (id) => setCustomers(customers.filter((c) => c.id !== id));
+  const handleSetStatus = (id, status) => setCustomers(customers.map((c) => (c.id === id ? { ...c, status } : c)));
+  const handleMarkReminderSent = (id) => setCustomers(customers.map((c) => (c.id === id ? { ...c, reminderSent: true, reminderSentAt: getTodayISO() } : c)));
+  const handleMarkFollowSent = (id) => setCustomers(customers.map((c) => (c.id === id ? { ...c, followSent: true, followSentAt: getTodayISO() } : c)));
+  const handleMarkInfillSent = (id, weekBucket) =>
+    setCustomers(
+      customers.map((c) =>
+        c.id === id
+          ? weekBucket === "week3"
+            ? { ...c, infillWeek3SentAt: getTodayISO() }
+            : { ...c, infillWeek2SentAt: getTodayISO() }
+          : c
+      )
+    );
+  const handleMarkFullsetSent = (id) =>
+    setCustomers(
+      customers.map((c) =>
+        c.id === id ? { ...c, fullsetSentDates: [...(c.fullsetSentDates || []), getTodayISO()] } : c
+      )
+    );
+  const handleProductsChange = (nextForCategory) => {
+    const otherCategoryProducts = products.filter((p) => p.category !== view);
+    setProducts([...otherCategoryProducts, ...nextForCategory]);
+  };
+  const handleSellItemsChange = (nextForCategory) => {
+    const otherCategoryItems = sellItems.filter((p) => p.category !== view);
+    setSellItems([...otherCategoryItems, ...nextForCategory]);
+  };
+  if (!authenticated) {
+    return (
+      <div className="app-root">
+        <LoginScreen onLogin={(account) => setAuthenticated(true, account)} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-root">
+      <ToastProvider>
+        <div className="app-shell">
+          <Sidebar view={renderedView} role={role} onViewChange={setView} onLogout={() => setLogoutConfirmOpen(true)} />
+
+          <main className="main-area">
+            {!loaded ? (
+              <div className="loading-state">Loading studio data…</div>
+            ) : renderedView === "overview" ? (
+              <OverviewDashboard customers={customers} services={services} products={products} sellItems={sellItems} studioExpenses={studioExpenses} staffSalaries={staffSalaries} />
+            ) : renderedView === "staff" ? (
+              <StaffPage staff={staff} setStaff={setStaff} />
+            ) : renderedView === "expenses" ? (
+              <GeneralExpensesPage role={role} items={studioExpenses} onItemsChange={setStudioExpenses} staff={staff} staffSalaries={staffSalaries} setStaffSalaries={setStaffSalaries} />
+            ) : (
+              <CategoryPage
+                key={renderedView}
+                role={role}
+                category={renderedView}
+                customers={customers.filter((c) => c.category === renderedView)}
+                products={products.filter((p) => p.category === renderedView)}
+                sellItems={sellItems.filter((p) => p.category === renderedView)}
+                services={services.filter((s) => s.category === renderedView)}
+                onAddCustomer={handleAddCustomer}
+                onEditCustomer={handleEditCustomer}
+                onDeleteCustomer={handleDeleteCustomer}
+                onSetStatus={handleSetStatus}
+                onMarkReminderSent={handleMarkReminderSent}
+                onMarkFollowSent={handleMarkFollowSent}
+                onMarkInfillSent={handleMarkInfillSent}
+                onMarkFullsetSent={handleMarkFullsetSent}
+                onProductsChange={handleProductsChange}
+                onSellItemsChange={handleSellItemsChange}
+              />
+            )}
+          </main>
+        </div>
+
+        {logoutConfirmOpen && (
+          <ConfirmDialog
+            title="Log out?"
+            message="You'll need to log back in to access the admin panel."
+            confirmLabel="Log out"
+            confirmColor="var(--primary)"
+            onCancel={() => setLogoutConfirmOpen(false)}
+            onConfirm={() => { setLogoutConfirmOpen(false); setAuthenticated(false); setView("overview"); }}
+          />
+        )}
+      </ToastProvider>
+    </div>
+  );
+}
