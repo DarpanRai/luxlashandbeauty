@@ -238,11 +238,12 @@ textarea.input { resize: vertical; min-height: 80px; }
 
 @media (max-width: 780px) {
   .app-shell { flex-direction: column; }
-  .sidebar { width: 100%; height: auto; flex-shrink: 0; flex-direction: row; align-items: center; padding: 12px 14px; gap: 14px; overflow-x: auto; overflow-y: visible; }
-  .sidebar-nav { flex-direction: row; flex: none; }
+  .sidebar { width: 100%; height: auto; flex-shrink: 0; flex-direction: row; align-items: center; padding: 12px 14px; gap: 14px; overflow: visible; }
+  .sidebar-brand { flex-shrink: 0; }
+  .sidebar-nav { flex-direction: row; flex: 1; min-width: 0; overflow-x: auto; }
   .nav-item span { display: none; }
-  .nav-item { padding: 10px; }
-  .nav-item.logout { margin-top: 0; }
+  .nav-item { padding: 10px; flex-shrink: 0; }
+  .nav-item.logout { margin-top: 0; flex-shrink: 0; }
   .main-area { padding: 0 16px 40px; }
   .view-header--sticky { padding: 18px 0 12px; }
 }
