@@ -71,7 +71,7 @@ export default function App() {
   const [role, setRoleState] = useState(getStoredRole);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
-  // account is the matched entry from ACCOUNTS on login (undefined on logout).
+  // account is the { role, name, email } returned by the Supabase login() RPC on login (undefined on logout).
   const setAuthenticated = (next, account) => {
     setAuthenticatedState(next);
     setRoleState(next && account?.role ? account.role : "owner");

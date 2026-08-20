@@ -1,23 +1,34 @@
 import { useState } from "react";
-import { LogIn } from "lucide-react";
+import { LogIn, Loader2 } from "lucide-react";
 import logo from "../../img/luxlash.jpeg";
-import { ACCOUNTS } from "../../constants/accounts.js";
+import { supabase } from "../../lib/supabaseClient.js";
 
 export default function LoginScreen({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const match = ACCOUNTS.find(
-      (a) => a.email.toLowerCase() === email.trim().toLowerCase() && a.password === password
-    );
-    if (match) {
-      setError("");
-      onLogin(match);
-    } else {
-      setError("Invalid email or password");
+    setSubmitting(true);
+    setError("");
+    try {
+      const { data, error: rpcError } = await supabase.rpc("login", {
+        p_email: email.trim(),
+        p_password: password,
+      });
+      if (rpcError) throw rpcError;
+      const match = data?.[0];
+      if (match) {
+        onLogin({ email: email.trim(), role: match.role, name: match.name });
+      } else {
+        setError("Invalid email or password");
+      }
+    } catch {
+      setError("Couldn't sign in — check your connection and try again");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -57,8 +68,9 @@ export default function LoginScreen({ onLogin }) {
             />
           </label>
           {error && <div className="field-error">{error}</div>}
-          <button type="submit" className="btn btn-primary" style={{ justifyContent: "center", marginTop: 4 }}>
-            <LogIn size={16} /> Log in
+          <button type="submit" className="btn btn-primary" style={{ justifyContent: "center", marginTop: 4 }} disabled={submitting}>
+            {submitting ? <Loader2 size={16} className="spin" /> : <LogIn size={16} />}
+            {submitting ? "Signing in…" : "Log in"}
           </button>
         </form>
       </div>
