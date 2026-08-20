@@ -1,4 +1,4 @@
-import { LayoutDashboard, Sparkles, Eye, Users, Receipt, LogOut } from "lucide-react";
+import { LayoutDashboard, Sparkles, Eye, Users, Receipt, UserCog, LogOut } from "lucide-react";
 import logo from "../../img/luxlash.jpeg";
 
 const NAV_ITEMS = [
@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { key: "luxlash", label: "LuxLash", icon: Eye },
   { key: "staff", label: "Staff's", icon: Users, ownerOnly: true },
   { key: "expenses", label: "Expenses", icon: Receipt },
+  { key: "team", label: "Team", icon: UserCog, ownerOnly: true },
 ];
 
 export default function Sidebar({ view, role, onViewChange, onLogout }) {

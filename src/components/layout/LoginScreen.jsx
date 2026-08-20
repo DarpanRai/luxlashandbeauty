@@ -21,7 +21,7 @@ export default function LoginScreen({ onLogin }) {
       if (rpcError) throw rpcError;
       const match = data?.[0];
       if (match) {
-        onLogin({ email: email.trim(), role: match.role, name: match.name });
+        onLogin({ id: match.id, email: email.trim(), role: match.role, name: match.name });
       } else {
         setError("Invalid email or password");
       }

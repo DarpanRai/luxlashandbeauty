@@ -11,6 +11,7 @@ import OverviewDashboard from "./components/dashboard/OverviewDashboard.jsx";
 import CategoryPage from "./components/customers/CategoryPage.jsx";
 import StaffPage from "./components/staff/StaffPage.jsx";
 import GeneralExpensesPage from "./components/expenses/GeneralExpensesPage.jsx";
+import TeamAccountsPage from "./components/team/TeamAccountsPage.jsx";
 
 const VIEW_PATHS = {
   overview: "dashboard",
@@ -18,6 +19,7 @@ const VIEW_PATHS = {
   luxlash: "luxlash",
   staff: "staff",
   expenses: "expenses",
+  team: "team",
 };
 const PATH_VIEWS = Object.fromEntries(Object.entries(VIEW_PATHS).map(([viewKey, path]) => [path, viewKey]));
 
@@ -39,6 +41,7 @@ const getViewFromLocation = () => {
 // on a shared front-desk computer.
 const AUTH_KEY = "ct_authenticated";
 const ROLE_KEY = "ct_role";
+const ACCOUNT_KEY = "ct_account";
 const getStoredAuth = () => {
   try {
     return sessionStorage.getItem(AUTH_KEY) === "true";
@@ -53,9 +56,17 @@ const getStoredRole = () => {
     return "owner";
   }
 };
+const getStoredAccount = () => {
+  try {
+    const raw = sessionStorage.getItem(ACCOUNT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+};
 
 // Views a "staff" role account can never land on, even via a bookmarked/typed URL.
-const STAFF_BLOCKED_VIEWS = new Set(["overview", "staff"]);
+const STAFF_BLOCKED_VIEWS = new Set(["overview", "staff", "team"]);
 const STAFF_FALLBACK_VIEW = "makeup";
 
 export default function App() {
@@ -69,23 +80,43 @@ export default function App() {
   const [view, setViewState] = useState(getViewFromLocation);
   const [authenticated, setAuthenticatedState] = useState(getStoredAuth);
   const [role, setRoleState] = useState(getStoredRole);
+  const [account, setAccountState] = useState(getStoredAccount);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
 
-  // account is the { role, name, email } returned by the Supabase login() RPC on login (undefined on logout).
-  const setAuthenticated = (next, account) => {
+  // account is the { id, role, name, email } returned by the Supabase login() RPC on login (null on logout).
+  const setAuthenticated = (next, nextAccount) => {
     setAuthenticatedState(next);
-    setRoleState(next && account?.role ? account.role : "owner");
+    setRoleState(next && nextAccount?.role ? nextAccount.role : "owner");
+    setAccountState(next ? nextAccount || null : null);
     try {
       if (next) {
         sessionStorage.setItem(AUTH_KEY, "true");
-        sessionStorage.setItem(ROLE_KEY, account?.role || "owner");
+        sessionStorage.setItem(ROLE_KEY, nextAccount?.role || "owner");
+        sessionStorage.setItem(ACCOUNT_KEY, JSON.stringify(nextAccount || null));
       } else {
         sessionStorage.removeItem(AUTH_KEY);
         sessionStorage.removeItem(ROLE_KEY);
+        sessionStorage.removeItem(ACCOUNT_KEY);
       }
     } catch {
       // sessionStorage unavailable (e.g. private browsing) — auth still works for this tab session
     }
+  };
+
+  // Called after the owner edits their own row on the Team page — keeps the in-memory
+  // identity (and the re-auth email used for further admin_* calls) in sync so the page
+  // doesn't have to ask them to unlock again mid-session.
+  const updateOwnAccount = (patch) => {
+    setAccountState((prev) => {
+      const next = { ...prev, ...patch };
+      try {
+        sessionStorage.setItem(ACCOUNT_KEY, JSON.stringify(next));
+      } catch {
+        // sessionStorage unavailable — identity still updates for this tab session
+      }
+      return next;
+    });
+    if (patch.role) setRoleState(patch.role);
   };
 
   const loaded = customersLoaded && productsLoaded && sellItemsLoaded && servicesLoaded && staffLoaded && studioExpensesLoaded && staffSalariesLoaded;
@@ -168,6 +199,8 @@ export default function App() {
               <StaffPage staff={staff} setStaff={setStaff} />
             ) : renderedView === "expenses" ? (
               <GeneralExpensesPage role={role} items={studioExpenses} onItemsChange={setStudioExpenses} staff={staff} staffSalaries={staffSalaries} setStaffSalaries={setStaffSalaries} />
+            ) : renderedView === "team" ? (
+              <TeamAccountsPage account={account} onOwnAccountUpdated={updateOwnAccount} />
             ) : (
               <CategoryPage
                 key={renderedView}
