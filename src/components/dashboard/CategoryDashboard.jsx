@@ -134,6 +134,7 @@ export default function CategoryDashboard({ category, customers, serviceMap, pro
         {breakdown.length === 0 ? (
           <div className="empty-inline">No data for this month yet.</div>
         ) : (
+          <div className="table-scroll">
           <table className="data-table">
             <thead><tr><th>Service</th><th>Bookings</th><th>Revenue</th></tr></thead>
             <tbody>
@@ -144,6 +145,7 @@ export default function CategoryDashboard({ category, customers, serviceMap, pro
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
@@ -154,6 +156,7 @@ export default function CategoryDashboard({ category, customers, serviceMap, pro
             {yearOptions.map((y) => (<option key={y} value={y}>{y}</option>))}
           </select>
         </div>
+        <div className="table-scroll">
         <table className="data-table">
           <thead><tr><th>Month</th><th>Revenue</th><th>Expenses</th><th>Profit</th></tr></thead>
           <tbody>
@@ -167,6 +170,7 @@ export default function CategoryDashboard({ category, customers, serviceMap, pro
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="kpi-grid" style={{ marginTop: 14 }}>
         <KpiCard icon={<Wallet size={18} />} label={`Total ${selectedYear} revenue — ${meta.label}`} value={formatMoney(yearTotalRevenue)} accent={meta.accent} />

@@ -75,6 +75,7 @@ export default function GeneralExpensesPage({ role, items, onItemsChange, staff,
                   ))}
                 </select>
               </div>
+              <div className="table-scroll">
               <table className="data-table">
                 <thead><tr><th>Name</th><th>Role</th><th>Salary — {getMonthLabel(salaryMonth)}</th><th>Status</th></tr></thead>
                 <tbody>
@@ -123,6 +124,7 @@ export default function GeneralExpensesPage({ role, items, onItemsChange, staff,
                   })}
                 </tbody>
               </table>
+              </div>
               <div className="panel" style={{ marginTop: 14 }}>
                 <div className="panel-title">Total salaries — {getMonthLabel(salaryMonth)}</div>
                 <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalSalaries)}</div>

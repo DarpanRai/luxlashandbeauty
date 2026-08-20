@@ -57,6 +57,7 @@ export default function StaffPage({ staff, setStaff }) {
           </button>
         </div>
       ) : (
+        <div className="table-scroll">
         <table className="data-table staff-table">
           <thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Joined</th><th>Status</th><th>Documents</th><th></th></tr></thead>
           <tbody>
@@ -91,6 +92,7 @@ export default function StaffPage({ staff, setStaff }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {formOpen && <StaffFormModal initial={editingStaff} onCancel={() => { setFormOpen(false); setEditingId(null); }} onSave={handleSave} />}

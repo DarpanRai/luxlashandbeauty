@@ -158,6 +158,7 @@ export default function OverviewDashboard({ customers, services, products, sellI
 
       <div className="panel">
         <div className="panel-title">By category — {getMonthLabel(selectedMonth)}</div>
+        <div className="table-scroll">
         <table className="data-table">
           <thead><tr><th>Category</th><th>Bookings</th><th>Revenue</th><th>Cost</th><th>Profit</th></tr></thead>
           <tbody>
@@ -172,6 +173,7 @@ export default function OverviewDashboard({ customers, services, products, sellI
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="panel">
@@ -181,6 +183,7 @@ export default function OverviewDashboard({ customers, services, products, sellI
             {yearOptions.map((y) => (<option key={y} value={y}>{y}</option>))}
           </select>
         </div>
+        <div className="table-scroll">
         <table className="data-table">
           <thead><tr><th>Month</th><th>Revenue</th><th>Expenses</th><th>Profit</th></tr></thead>
           <tbody>
@@ -194,6 +197,7 @@ export default function OverviewDashboard({ customers, services, products, sellI
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       <div className="kpi-grid" style={{ marginTop: 14 }}>
         <KpiCard icon={<Wallet size={18} />} label={`Total ${selectedYear} revenue — Studio`} value={formatMoney(yearTotalRevenue)} accent="var(--primary)" />

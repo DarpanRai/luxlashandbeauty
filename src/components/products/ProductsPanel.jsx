@@ -64,6 +64,7 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
         </div>
       ) : (
         <>
+          <div className="table-scroll">
           <table className="data-table">
             <thead><tr><th>Name</th>{!isStudio && <th>Brand name</th>}<th>Cost</th><th>Date</th></tr></thead>
             <tbody>
@@ -77,6 +78,7 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="panel" style={{ marginTop: 14 }}>
             <div className="panel-title">Total {meta.label.toLowerCase()} expenses — {getMonthLabel(selectedMonth)}</div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalCost)}</div>

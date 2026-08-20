@@ -71,6 +71,7 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange }) 
         </div>
       ) : (
         <>
+          <div className="table-scroll">
           <table className="data-table">
             <thead><tr><th>Name</th><th>Brand name</th><th>Price</th><th>Date</th><th></th></tr></thead>
             <tbody>
@@ -89,6 +90,7 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange }) 
               ))}
             </tbody>
           </table>
+          </div>
           <div className="panel" style={{ marginTop: 14 }}>
             <div className="panel-title">Total {meta.label.toLowerCase()} sales — {getMonthLabel(selectedMonth)}</div>
             <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalSales)}</div>

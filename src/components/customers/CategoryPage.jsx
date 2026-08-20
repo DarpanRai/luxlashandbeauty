@@ -248,6 +248,7 @@ export default function CategoryPage({
                   ? `Showing ${filteredBookingHistory.length} of ${bookingHistory.length} appointments`
                   : `${bookingHistory.length} appointment${bookingHistory.length === 1 ? "" : "s"} total`}
               </div>
+              <div className="table-scroll">
               <table className="data-table">
               <thead>
                 <tr>
@@ -413,6 +414,7 @@ export default function CategoryPage({
                 })}
               </tbody>
             </table>
+            </div>
             </>
           )}
         </>
