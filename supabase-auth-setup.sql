@@ -55,3 +55,23 @@ on conflict (email) do update set
   password_hash = excluded.password_hash,
   role = excluded.role,
   name = excluded.name;
+
+-- ── Managing accounts later (run these one at a time in the SQL Editor) ────────
+-- There's no in-app UI for this by design — the accounts table has no anon access
+-- at all (see the RLS note above), so this SQL editor is the only way in, same as
+-- how you're seeding accounts right now.
+
+-- Add a new account (role is 'owner' or 'staff'):
+-- insert into accounts (email, password_hash, role, name) values
+--   ('newperson@example.com', extensions.crypt('theirNewPassword', extensions.gen_salt('bf')), 'staff', 'New Person Name');
+
+-- Change someone's password:
+-- update accounts
+-- set password_hash = extensions.crypt('theNewPassword', extensions.gen_salt('bf'))
+-- where email = 'someone@example.com';
+
+-- Change someone's role or display name:
+-- update accounts set role = 'owner', name = 'New Display Name' where email = 'someone@example.com';
+
+-- Remove an account:
+-- delete from accounts where email = 'someone@example.com';
