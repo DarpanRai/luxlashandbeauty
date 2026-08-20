@@ -3,6 +3,7 @@ import { Plus, Pencil, Trash2, Users } from "lucide-react";
 import { generateId } from "../../utils/id.js";
 import { formatDisplayDate } from "../../utils/date.js";
 import StaffFormModal from "./StaffFormModal.jsx";
+import StaffDocumentsModal from "./StaffDocumentsModal.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 
@@ -10,8 +11,10 @@ export default function StaffPage({ staff, setStaff }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [viewingDocsFor, setViewingDocsFor] = useState(null);
   const notify = useToast();
   const editingStaff = editingId ? staff.find((s) => s.id === editingId) : null;
+  const viewingDocsStaff = viewingDocsFor ? staff.find((s) => s.id === viewingDocsFor) : null;
 
   const handleSave = (data) => {
     if (editingId) {
@@ -70,13 +73,24 @@ export default function StaffPage({ staff, setStaff }) {
                 <td><span className="chip" style={{ background: s.status === "active" ? "#E1EEE7" : "#F5E6E1", color: s.status === "active" ? "#276148" : "#B3452F" }}>{s.status === "active" ? "Active" : "Inactive"}</span></td>
                 <td>
                   {(s.documents || []).length > 0 ? (
-                    <div style={{ display: "flex", gap: 4 }}>
+                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                       {s.documents.slice(0, 3).map((doc, i) => (
-                        <a key={i} href={doc} target="_blank" rel="noopener noreferrer">
+                        <button
+                          key={i}
+                          type="button"
+                          className="icon-btn"
+                          style={{ padding: 0 }}
+                          onClick={() => setViewingDocsFor(s.id)}
+                          title="View documents"
+                        >
                           <img src={doc} alt={`Document ${i + 1}`} style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
-                        </a>
+                        </button>
                       ))}
-                      {s.documents.length > 3 && <span className="chip">+{s.documents.length - 3}</span>}
+                      {s.documents.length > 3 && (
+                        <button type="button" className="chip" style={{ border: "none", cursor: "pointer" }} onClick={() => setViewingDocsFor(s.id)}>
+                          +{s.documents.length - 3}
+                        </button>
+                      )}
                     </div>
                   ) : (
                     "—"
@@ -96,6 +110,14 @@ export default function StaffPage({ staff, setStaff }) {
       )}
 
       {formOpen && <StaffFormModal initial={editingStaff} onCancel={() => { setFormOpen(false); setEditingId(null); }} onSave={handleSave} />}
+
+      {viewingDocsStaff && (
+        <StaffDocumentsModal
+          staffName={viewingDocsStaff.name}
+          documents={viewingDocsStaff.documents || []}
+          onClose={() => setViewingDocsFor(null)}
+        />
+      )}
 
       {deleteId && (
         <ConfirmDialog
