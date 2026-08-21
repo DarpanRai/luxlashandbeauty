@@ -11,7 +11,7 @@ import ProductsPanel from "../products/ProductsPanel.jsx";
 import SellItemsPanel from "../products/SellItemsPanel.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
-import { getTodayISO, formatDisplayDate } from "../../utils/date.js";
+import { getTodayISO, formatDisplayDate, formatDisplayTime } from "../../utils/date.js";
 import { formatMoney, getCustomerRevenue, getDueAmount } from "../../utils/format.js";
 import { ADDON_MAP } from "../../constants/addons.js";
 import { REFILL_MAP } from "../../constants/refills.js";
@@ -30,6 +30,8 @@ export default function CategoryPage({
   category,
   role,
   customers,
+  allCustomers,
+  staff,
   products,
   sellItems,
   services,
@@ -73,6 +75,8 @@ export default function CategoryPage({
         instagram: rebookCustomer.instagram || "",
         birthday: rebookCustomer.birthday || "",
         appointmentDate: getTodayISO(),
+        appointmentTime: "",
+        assignedTo: "",
         serviceId: rebookCustomer.serviceId,
         lashRemoval: false,
         refillId: "",
@@ -252,7 +256,7 @@ export default function CategoryPage({
               <table className="data-table">
               <thead>
                 <tr>
-                  <th>Name</th><th>Service</th><th>Amount</th><th>Advance</th><th>Due</th><th>Booked On</th><th>Booked For</th><th>Status</th>
+                  <th>Name</th><th>Service</th><th>Amount</th><th>Advance</th><th>Due</th><th>Booked On</th><th>Booked For</th><th>Time</th><th>Assigned to</th><th>Status</th>
                   {category === "luxlash" && <th>Infill / Full Set Sent</th>}
                   <th>Message</th><th></th>
                 </tr>
@@ -279,6 +283,8 @@ export default function CategoryPage({
                       <td>{hasBookableItem && c.status === "upcoming" ? formatMoney(getDueAmount(c, service)) : c.status === "cancelled" ? "" : "—"}</td>
                       <td>{formatDisplayDate(c.bookingDate, "—")}</td>
                       <td>{formatDisplayDate(c.appointmentDate, "—")}</td>
+                      <td>{formatDisplayTime(c.appointmentTime, "—")}</td>
+                      <td>{c.assignedTo || "—"}</td>
                       <td><span className="chip" style={{ background: status.chip, color: status.text }}>{status.label}</span></td>
                       {category === "luxlash" && (
                         <td>
@@ -470,6 +476,8 @@ export default function CategoryPage({
           prefill={rebookPrefill}
           lockContact={lockContactEdit}
           services={services}
+          staff={staff}
+          allCustomers={allCustomers}
           onCancel={closeForm}
           onSave={handleSave}
         />

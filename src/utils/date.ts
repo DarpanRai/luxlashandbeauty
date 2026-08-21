@@ -46,6 +46,16 @@ export const formatDisplayDate = (dateStr?: string, fallback = "—"): string =>
   });
 };
 
+// timeStr is "HH:MM" (24hr), the shape <input type="time"> gives back.
+export const formatDisplayTime = (timeStr?: string, fallback = "—"): string => {
+  if (!timeStr) return fallback;
+  const [h, m] = timeStr.split(":").map(Number);
+  if (Number.isNaN(h) || Number.isNaN(m)) return fallback;
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+};
+
 // The studio started operating in August 2026 — nothing before that is real data, so it's
 // deliberately excluded everywhere (month/year selectors, the full-year table, and date
 // pickers), even if a rolling window would otherwise reach back into it.

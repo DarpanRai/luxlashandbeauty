@@ -12,7 +12,7 @@ const PHONE_DIGITS_MAX = 15;
 // bridal packages don't offer them.
 const MAKEUP_ADDON_SERVICE_ID = "s-m3";
 
-export default function CustomerFormModal({ meta, category, initial, prefill, services, onCancel, onSave, lockContact }) {
+export default function CustomerFormModal({ meta, category, initial, prefill, services, staff, allCustomers, onCancel, onSave, lockContact }) {
   const [form, setForm] = useState(() =>
     initial
       ? { ...initial }
@@ -26,6 +26,8 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
           instagram: "",
           birthday: "",
           appointmentDate: getTodayISO(),
+          appointmentTime: "",
+          assignedTo: "",
           serviceId: services[0]?.id || "",
           lashRemoval: false,
           refillId: "",
@@ -53,6 +55,25 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
     if (!form.appointmentDate.trim()) next.appointmentDate = "Appointment booked date is required.";
     else if (form.appointmentDate < PROJECT_START_DATE)
       next.appointmentDate = "The studio started in August 2026 — pick a date from then on.";
+    if (!form.appointmentTime || !form.appointmentTime.trim()) {
+      next.appointmentTime = "Appointment time is required.";
+    }
+    if (!form.assignedTo || !form.assignedTo.trim()) {
+      next.assignedTo = "Assigned staff is required.";
+    } else if (form.appointmentTime && form.appointmentDate) {
+      // Same staff member, same date+time, across every category — not just this
+      // one — since one person can't physically be in two appointments at once.
+      const normalizedAssignee = form.assignedTo.trim().toLowerCase();
+      const conflict = (allCustomers || []).some(
+        (c) =>
+          c.id !== initial?.id &&
+          c.status !== "cancelled" &&
+          c.appointmentDate === form.appointmentDate &&
+          c.appointmentTime === form.appointmentTime &&
+          (c.assignedTo || "").trim().toLowerCase() === normalizedAssignee
+      );
+      if (conflict) next.assignedTo = `${form.assignedTo.trim()} is already booked at this date and time.`;
+    }
     if (!form.serviceId && !serviceOptional) next.serviceId = "Service is required.";
     if (!form.status) next.status = "Status is required.";
     const phoneDigits = form.phone.replace(/\D/g, "");
@@ -206,6 +227,32 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
               disabled={locked}
             />
             {errors.appointmentDate && <span className="field-error">{errors.appointmentDate}</span>}
+          </label>
+          <label className="field">
+            <span className="label">Assigned time</span>
+            <input
+              type="time"
+              className={`input${errors.appointmentTime ? " invalid" : ""}`}
+              value={form.appointmentTime || ""}
+              onChange={(e) => setField("appointmentTime", e.target.value)}
+              disabled={locked}
+            />
+            {errors.appointmentTime && <span className="field-error">{errors.appointmentTime}</span>}
+          </label>
+          <label className="field">
+            <span className="label">Assigned to <span className="label-hint">(pick a staff member or type a name)</span></span>
+            <input
+              className={`input${errors.assignedTo ? " invalid" : ""}`}
+              list="assigned-staff-options"
+              value={form.assignedTo || ""}
+              onChange={(e) => setField("assignedTo", e.target.value)}
+              placeholder="Select or type a name"
+              disabled={locked}
+            />
+            <datalist id="assigned-staff-options">
+              {(staff || []).map((s) => (<option key={s.id} value={s.name} />))}
+            </datalist>
+            {errors.assignedTo && <span className="field-error">{errors.assignedTo}</span>}
           </label>
           {category === "luxlash" && (
             <div className="field">

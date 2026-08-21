@@ -1,6 +1,6 @@
-import { Phone, MapPin, Calendar, Mail, Instagram, Pencil, Trash2, CalendarPlus } from "lucide-react";
+import { Phone, MapPin, Calendar, Mail, Instagram, Pencil, Trash2, CalendarPlus, User } from "lucide-react";
 import { STATUS } from "../../constants/status.js";
-import { formatDisplayDate } from "../../utils/date.js";
+import { formatDisplayDate, formatDisplayTime } from "../../utils/date.js";
 import { formatMoney, getCustomerRevenue, getDueAmount } from "../../utils/format.js";
 import { ADDON_MAP } from "../../constants/addons.js";
 import { REFILL_MAP } from "../../constants/refills.js";
@@ -46,7 +46,11 @@ export default function CustomerCard({ customer, meta, service, onEdit, onDelete
       <div className="cust-detail">
         <Calendar size={14} />
         {formatDisplayDate(customer.appointmentDate, "No date set")}
+        {customer.appointmentTime ? ` at ${formatDisplayTime(customer.appointmentTime)}` : ""}
       </div>
+      {customer.assignedTo && (
+        <div className="cust-detail"><User size={14} /> {customer.assignedTo}</div>
+      )}
       {customer.email && (
         <div className="cust-detail"><Mail size={14} /> {customer.email}</div>
       )}

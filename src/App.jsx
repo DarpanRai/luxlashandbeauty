@@ -307,6 +307,8 @@ export default function App() {
                 role={role}
                 category={renderedView}
                 customers={customers.filter((c) => c.category === renderedView)}
+                allCustomers={customers}
+                staff={staff}
                 products={products.filter((p) => p.category === renderedView)}
                 sellItems={sellItems.filter((p) => p.category === renderedView)}
                 services={services.filter((s) => s.category === renderedView)}
