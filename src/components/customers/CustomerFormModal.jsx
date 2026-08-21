@@ -249,7 +249,7 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
             />
           </label>
           <label className="field">
-            <span className="label">Birthday <span className="label-hint">(optional — shows a reminder on their card)</span></span>
+            <span className="label">Birthday</span>
             <input
               type="date"
               className="input"
@@ -319,7 +319,7 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
               <span className="label-hint">
                 {serviceOptional
                   ? `(optional — ${form.lashRemoval ? "lash removal" : "refill"} already added)`
-                  : "(used to calculate revenue)"}
+                  : ``}
               </span>
             </span>
             <select
@@ -378,7 +378,7 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
 
           {hasBookableItem && (
             <label className="field">
-              <span className="label">Advance <span className="label-hint">(already collected — part of the total, not extra)</span></span>
+              <span className="label">Advance</span>
               <input
                 className="input"
                 type="number"
