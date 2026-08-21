@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
-import { getTodayISO, PROJECT_START_DATE } from "../../utils/date.js";
+import { getTodayISO, PROJECT_START_DATE, formatDisplayTime } from "../../utils/date.js";
 import { formatMoney, LASH_REMOVAL_PRICE } from "../../utils/format.js";
 import { DEFAULT_ADDONS } from "../../constants/addons.js";
 import { REFILL_OPTIONS } from "../../constants/refills.js";
@@ -11,6 +11,33 @@ const PHONE_DIGITS_MAX = 15;
 // Add-ons (hairstyling extras) only apply to the Party Makeup service — the
 // bridal packages don't offer them.
 const MAKEUP_ADDON_SERVICE_ID = "s-m3";
+
+// Doing someone's makeup ties the artist up for the whole service, not just the
+// booked start time — a bridal job (Master or Senior artist, s-m1/s-m2) runs 3.5
+// hours, Party Makeup (s-m3) runs 2.5. LuxLash services have no duration modeled
+// here, so they're still treated as a single point in time (see getBookingWindow).
+const MAKEUP_SERVICE_DURATION_HOURS = { "s-m1": 3.5, "s-m2": 3.5, "s-m3": 2.5 };
+
+const timeToMinutes = (timeStr) => {
+  const [h, m] = (timeStr || "").split(":").map(Number);
+  return h * 60 + (m || 0);
+};
+
+// A booking "occupies" its staff member from appointmentTime for however long the
+// service takes — [start, end]. Anything without a known duration (LuxLash, or a
+// makeup record with no matching service) collapses to a zero-width point at its
+// start time, which still conflicts with an exact-time match but doesn't claim any
+// time either side of it.
+const getBookingWindow = (c) => {
+  const start = timeToMinutes(c.appointmentTime);
+  const hours = c.category === "makeup" ? MAKEUP_SERVICE_DURATION_HOURS[c.serviceId] : undefined;
+  return { start, end: hours ? start + hours * 60 : start };
+};
+
+const windowsOverlap = (a, b) => a.start <= b.end && b.start <= a.end;
+
+const minutesToTime = (mins) =>
+  `${String(Math.floor(mins / 60) % 24).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 
 export default function CustomerFormModal({ meta, category, initial, prefill, services, staff, allCustomers, onCancel, onSave, lockContact }) {
   const [form, setForm] = useState(() =>
@@ -61,18 +88,25 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
     if (!form.assignedTo || !form.assignedTo.trim()) {
       next.assignedTo = "Assigned staff is required.";
     } else if (form.appointmentTime && form.appointmentDate) {
-      // Same staff member, same date+time, across every category — not just this
-      // one — since one person can't physically be in two appointments at once.
+      // Same staff member, same date, overlapping time window — across every
+      // category, not just this one, since a person can't be in two places at
+      // once. A makeup booking's window spans its whole service duration (see
+      // MAKEUP_SERVICE_DURATION_HOURS); anything else is a single point in time.
       const normalizedAssignee = form.assignedTo.trim().toLowerCase();
-      const conflict = (allCustomers || []).some(
+      const newWindow = getBookingWindow({ category, serviceId: form.serviceId, appointmentTime: form.appointmentTime });
+      const conflictingBooking = (allCustomers || []).find(
         (c) =>
           c.id !== initial?.id &&
           c.status !== "cancelled" &&
           c.appointmentDate === form.appointmentDate &&
-          c.appointmentTime === form.appointmentTime &&
-          (c.assignedTo || "").trim().toLowerCase() === normalizedAssignee
+          (c.assignedTo || "").trim().toLowerCase() === normalizedAssignee &&
+          windowsOverlap(newWindow, getBookingWindow(c))
       );
-      if (conflict) next.assignedTo = `${form.assignedTo.trim()} is already booked at this date and time.`;
+      if (conflictingBooking) {
+        const busyUntil = getBookingWindow(conflictingBooking).end;
+        const untilLabel = busyUntil > newWindow.start ? ` (busy until ${formatDisplayTime(minutesToTime(busyUntil))})` : "";
+        next.assignedTo = `${form.assignedTo.trim()} is already booked around this time${untilLabel}.`;
+      }
     }
     if (!form.serviceId && !serviceOptional) next.serviceId = "Service is required.";
     if (!form.status) next.status = "Status is required.";
