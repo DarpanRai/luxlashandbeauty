@@ -3,7 +3,7 @@ import { LogIn, Loader2 } from "lucide-react";
 import logo from "../../img/luxlash.jpeg";
 import { supabase } from "../../lib/supabaseClient.js";
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen({ onLogin, notice }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,7 +21,7 @@ export default function LoginScreen({ onLogin }) {
       if (rpcError) throw rpcError;
       const match = data?.[0];
       if (match) {
-        onLogin({ id: match.id, email: email.trim(), role: match.role, name: match.name });
+        onLogin({ id: match.id, email: email.trim(), role: match.role, name: match.name, token_version: match.token_version });
       } else {
         setError("Invalid email or password");
       }
@@ -43,6 +43,7 @@ export default function LoginScreen({ onLogin }) {
         />
         <h2>Sign in</h2>
         <p>Enter your admin credentials to access the studio panel.</p>
+        {notice && <div className="notice">{notice}</div>}
         <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, textAlign: "left" }}>
           <label className="field">
             <span className="label">Email</span>

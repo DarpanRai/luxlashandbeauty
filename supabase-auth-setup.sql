@@ -20,8 +20,14 @@ create table if not exists accounts (
   password_hash text not null,
   role text not null check (role in ('owner', 'staff')),
   name text not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Bumped on every edit to this row (see admin_upsert_account). Each browser
+  -- session remembers the version it logged in with; validate_session() below
+  -- lets it notice when that version is stale (password/role/email changed
+  -- elsewhere, or someone deleted the account) and sign itself out.
+  token_version integer not null default 1
 );
+alter table accounts add column if not exists token_version integer not null default 1;
 
 alter table accounts enable row level security;
 -- Deliberately no policies — RLS with zero policies denies all direct SELECT/
@@ -30,12 +36,12 @@ alter table accounts enable row level security;
 
 drop function if exists login(text, text);
 create function login(p_email text, p_password text)
-returns table (id uuid, name text, role text)
+returns table (id uuid, name text, role text, token_version integer)
 language sql
 security definer
 set search_path = public, extensions
 as $$
-  select a.id, a.name, a.role
+  select a.id, a.name, a.role, a.token_version
   from accounts a
   where a.email = lower(trim(p_email))
     and a.password_hash = extensions.crypt(p_password, a.password_hash)
@@ -44,6 +50,24 @@ $$;
 
 revoke all on function login(text, text) from public;
 grant execute on function login(text, text) to anon;
+
+-- Lets an already-logged-in browser tab check "is my session still good?" without
+-- ever needing to re-send a password. It only ever answers true/false against an
+-- id it already has — no email/password lookup, so there's nothing sensitive to
+-- leak even though it's callable by the anon key.
+create or replace function validate_session(p_id uuid, p_version integer)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from accounts where id = p_id and token_version = p_version
+  );
+$$;
+
+revoke all on function validate_session(uuid, integer) from public;
+grant execute on function validate_session(uuid, integer) to anon;
 
 -- ── Owner-only account management (used by the in-app "Team" page) ─────────────
 -- There's still no Supabase Auth session in this app (see the RLS note above), so
@@ -80,7 +104,8 @@ grant execute on function admin_list_accounts(text, text) to anon;
 
 -- p_target_id: null to create a new account, or an existing account's id to edit it.
 -- p_target_password: '' (empty string) on edit means "keep the current password".
-create or replace function admin_upsert_account(
+drop function if exists admin_upsert_account(text, text, uuid, text, text, text, text);
+create function admin_upsert_account(
   p_email text,
   p_password text,
   p_target_id uuid,
@@ -89,7 +114,7 @@ create or replace function admin_upsert_account(
   p_target_role text,
   p_target_name text
 )
-returns table (id uuid, email text, role text, name text)
+returns table (id uuid, email text, role text, name text, token_version integer)
 language plpgsql
 security definer
 set search_path = public, extensions
@@ -149,13 +174,18 @@ begin
         when p_target_password is not null and length(p_target_password) > 0
           then extensions.crypt(p_target_password, extensions.gen_salt('bf'))
         else a.password_hash
-      end
+      end,
+      -- Any edit invalidates existing sessions for this row (see validate_session).
+      -- The caller who just made this edit updates their own stored version from
+      -- this function's return value, so only *other*, now-stale sessions get
+      -- signed out — not the one making the change.
+      token_version = a.token_version + 1
     where a.id = p_target_id;
 
     v_id := p_target_id;
   end if;
 
-  return query select a.id, a.email, a.role, a.name from accounts a where a.id = v_id;
+  return query select a.id, a.email, a.role, a.name, a.token_version from accounts a where a.id = v_id;
 end;
 $$;
 
@@ -221,9 +251,11 @@ on conflict (email) do update set
 -- insert into accounts (email, password_hash, role, name) values
 --   ('newperson@example.com', extensions.crypt('theirNewPassword', extensions.gen_salt('bf')), 'staff', 'New Person Name');
 
--- Change someone's password:
+-- Change someone's password (bump token_version too, so any device they're
+-- still logged in on elsewhere gets signed out instead of staying on the old password):
 -- update accounts
--- set password_hash = extensions.crypt('theNewPassword', extensions.gen_salt('bf'))
+-- set password_hash = extensions.crypt('theNewPassword', extensions.gen_salt('bf')),
+--     token_version = token_version + 1
 -- where email = 'someone@example.com';
 
 -- Change someone's role or display name:

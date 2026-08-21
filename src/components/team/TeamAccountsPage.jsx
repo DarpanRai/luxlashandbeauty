@@ -64,7 +64,15 @@ export default function TeamAccountsPage({ account, onOwnAccountUpdated }) {
       if (isSelf) {
         if (email !== authEmail) setAuthEmail(email);
         if (password) setAuthPassword(password);
-        onOwnAccountUpdated({ email, name, role: data?.[0]?.role || account.role });
+        // token_version was just bumped by this edit (see admin_upsert_account) —
+        // updating it here keeps *this* session valid; only other, now-stale
+        // sessions for this account fail the periodic check in App.jsx.
+        onOwnAccountUpdated({
+          email,
+          name,
+          role: data?.[0]?.role || account.role,
+          token_version: data?.[0]?.token_version,
+        });
       }
 
       await fetchAccounts(isSelf && email !== authEmail ? email : authEmail, isSelf && password ? password : authPassword);

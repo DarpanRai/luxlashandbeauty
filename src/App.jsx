@@ -5,6 +5,7 @@ import { generateId } from "./utils/id.js";
 import { getTodayISO } from "./utils/date.js";
 import { useStorage } from "./hooks/useStorage.js";
 import { useOnlineStatus } from "./hooks/useOnlineStatus.js";
+import { supabase } from "./lib/supabaseClient.js";
 import Sidebar from "./components/layout/Sidebar.jsx";
 import LoginScreen from "./components/layout/LoginScreen.jsx";
 import ConfirmDialog from "./components/common/ConfirmDialog.jsx";
@@ -67,6 +68,20 @@ const getStoredAccount = () => {
   }
 };
 
+// The local data cache (see useStorage.js) is sessionStorage too, for the same
+// shared-computer reasoning as auth — wipe it alongside the auth keys on logout so
+// customer data doesn't linger in the tab after signing out, only auto-clearing
+// once the tab/browser is closed.
+const clearDataCache = () => {
+  try {
+    Object.keys(sessionStorage)
+      .filter((k) => k.startsWith("cache:"))
+      .forEach((k) => sessionStorage.removeItem(k));
+  } catch {
+    // sessionStorage unavailable — nothing to clear
+  }
+};
+
 // Views a "staff" role account can never land on, even via a bookmarked/typed URL.
 const STAFF_BLOCKED_VIEWS = new Set(["overview", "staff", "team"]);
 const STAFF_FALLBACK_VIEW = "makeup";
@@ -86,12 +101,16 @@ export default function App() {
   const [role, setRoleState] = useState(getStoredRole);
   const [account, setAccountState] = useState(getStoredAccount);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
+  const [loginNotice, setLoginNotice] = useState("");
 
-  // account is the { id, role, name, email } returned by the Supabase login() RPC on login (null on logout).
+  // account is the { id, role, name, email, token_version } returned by the Supabase
+  // login() RPC on login (null on logout).
   const setAuthenticated = (next, nextAccount) => {
     setAuthenticatedState(next);
     setRoleState(next && nextAccount?.role ? nextAccount.role : "owner");
     setAccountState(next ? nextAccount || null : null);
+    if (next) setLoginNotice("");
+    else clearDataCache();
     try {
       if (next) {
         sessionStorage.setItem(AUTH_KEY, "true");
@@ -136,6 +155,46 @@ export default function App() {
     if (!online) wasOffline.current = true;
     else if (wasOffline.current) window.location.reload();
   }, [online]);
+
+  // "Once a password is changed, the old login should get thrown out" — there's no
+  // real server session here (see supabase-auth-setup.sql), so this is how a tab
+  // that's already logged in finds out it's been invalidated: validate_session()
+  // just checks whether this account's token_version still matches what we logged
+  // in with. Any edit to the account (password, role, email, or deletion) bumps
+  // that version server-side, so a stale tab's check starts failing and it gets
+  // signed out here — checked on a timer and whenever the tab regains focus, so it
+  // doesn't take a full page reload to notice.
+  useEffect(() => {
+    if (!authenticated || !account?.id) return;
+    let cancelled = false;
+    const checkSession = async () => {
+      try {
+        const { data, error } = await supabase.rpc("validate_session", {
+          p_id: account.id,
+          p_version: account.token_version,
+        });
+        if (cancelled || error) return; // transient network/db error — don't force a logout over it
+        if (data === false) {
+          setAuthenticated(false);
+          setLoginNotice("Your account details changed elsewhere, so you've been signed out — please log in again.");
+        }
+      } catch {
+        // ignore — same reasoning as above
+      }
+    };
+    checkSession();
+    const interval = setInterval(checkSession, 60000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") checkSession();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authenticated, account?.id, account?.token_version]);
 
   const setView = (nextView) => {
     setViewState(nextView);
@@ -221,7 +280,7 @@ export default function App() {
   if (!authenticated) {
     return (
       <div className="app-root">
-        <LoginScreen onLogin={(account) => setAuthenticated(true, account)} />
+        <LoginScreen notice={loginNotice} onLogin={(account) => setAuthenticated(true, account)} />
       </div>
     );
   }
