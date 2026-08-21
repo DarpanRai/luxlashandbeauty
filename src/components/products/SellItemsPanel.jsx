@@ -6,7 +6,7 @@ import { getMonthKey, getMonthLabel, getMonthOptions, getTodayISO, formatDisplay
 import SellItemFormModal from "./SellItemFormModal.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 
-export default function SellItemsPanel({ category, meta, sellItems, onChange }) {
+export default function SellItemsPanel({ category, meta, sellItems, onChange, products, onProductsChange }) {
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [query, setQuery] = useState("");
@@ -14,13 +14,27 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange }) 
   const notify = useToast();
   const editingItem = editingId ? sellItems.find((p) => p.id === editingId) : null;
 
+  const stockItems = useMemo(() => (products || []).filter((p) => p.stockQuantity != null && p.stockQuantity > 0), [products]);
+
   const handleSave = (data) => {
     if (editingId) {
       onChange(sellItems.map((p) => (p.id === editingId ? { ...p, name: data.name.trim(), brand: data.brand.trim(), price: Number(data.price) || 0, date: data.date } : p)));
       notify("Sell item updated");
     } else {
-      onChange([...sellItems, { id: generateId(), category, name: data.name.trim(), brand: data.brand.trim(), price: Number(data.price) || 0, date: data.date }]);
-      notify("Sell item added");
+      const quantity = Number(data.quantity) || 0;
+      onChange([
+        ...sellItems,
+        { id: generateId(), category, name: data.name.trim(), brand: data.brand.trim(), price: Number(data.price) || 0, date: data.date, productId: data.productId, quantity },
+      ]);
+      // Only the stocked quantity moves — cost/price on the Expenses/Stock record is untouched.
+      if (data.productId && onProductsChange) {
+        onProductsChange(
+          (products || []).map((p) =>
+            p.id === data.productId ? { ...p, stockQuantity: Math.max(0, (p.stockQuantity || 0) - quantity) } : p
+          )
+        );
+      }
+      notify("Sell item added — stock updated");
     }
     setFormOpen(false);
     setEditingId(null);
@@ -64,7 +78,7 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange }) 
         <div className="empty-state">
           <ShoppingBag size={28} />
           <div className="empty-title">No {meta.label.toLowerCase()} items sold in {getMonthLabel(selectedMonth)}</div>
-          <div className="empty-sub">Add an item with its name, brand name, price, and date. It counts toward that month's revenue.</div>
+          <div className="empty-sub">Pick a stocked item, its quantity, price, and date. It counts toward that month's revenue and updates stock automatically.</div>
           <button className="btn btn-primary" style={{ background: meta.accent }} onClick={openAddForm}>
             <Plus size={16} /> Add item
           </button>
@@ -73,12 +87,13 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange }) 
         <>
           <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>Name</th><th>Brand name</th><th>Price</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Brand name</th><th>Quantity</th><th>Price</th><th>Date</th><th></th></tr></thead>
             <tbody>
               {filteredItems.map((p) => (
                 <tr key={p.id}>
                   <td>{p.name}</td>
                   <td>{p.brand || "—"}</td>
+                  <td>{p.quantity ?? "—"}</td>
                   <td>{formatMoney(p.price)}</td>
                   <td>{formatDisplayDate(p.date, "—")}</td>
                   <td>
@@ -99,7 +114,7 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange }) 
       )}
 
       {formOpen && (
-        <SellItemFormModal meta={meta} initial={editingItem} onCancel={() => { setFormOpen(false); setEditingId(null); }} onSave={handleSave} />
+        <SellItemFormModal meta={meta} initial={editingItem} stockItems={stockItems} onCancel={() => { setFormOpen(false); setEditingId(null); }} onSave={handleSave} />
       )}
     </div>
   );

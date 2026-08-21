@@ -6,8 +6,15 @@ export default function ProductFormModal({ meta, category, initial, onCancel, on
   const isStudio = category === "studio";
   const [form, setForm] = useState(() =>
     initial
-      ? { name: initial.name, brand: initial.brand, cost: initial.cost, date: initial.date || getTodayISO() }
-      : { name: "", brand: "", cost: "", date: getTodayISO() }
+      ? {
+          name: initial.name,
+          brand: initial.brand,
+          cost: initial.cost,
+          date: initial.date || getTodayISO(),
+          addToStock: initial.stockQuantity != null,
+          stockQuantity: initial.stockQuantity ?? "",
+        }
+      : { name: "", brand: "", cost: "", date: getTodayISO(), addToStock: false, stockQuantity: "" }
   );
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -16,6 +23,7 @@ export default function ProductFormModal({ meta, category, initial, onCancel, on
     e.preventDefault();
     if (!form.name.trim() || (!isStudio && !form.brand.trim()) || !form.cost.toString().trim() || form.date < PROJECT_START_DATE)
       return;
+    if (!isStudio && form.addToStock && !(Number(form.stockQuantity) > 0)) return;
     onSave(form);
   };
 
@@ -45,6 +53,35 @@ export default function ProductFormModal({ meta, category, initial, onCancel, on
             <span className="label">Date</span>
             <input type="date" className="input" min={PROJECT_START_DATE} value={form.date} onChange={(e) => setField("date", e.target.value)} required />
           </label>
+          {!isStudio && (
+            <div className="field">
+              <div className="addon-list">
+                <label className="addon-option">
+                  <input
+                    type="checkbox"
+                    checked={form.addToStock}
+                    onChange={(e) => setField("addToStock", e.target.checked)}
+                  />
+                  Add this item to stock
+                </label>
+              </div>
+            </div>
+          )}
+          {!isStudio && form.addToStock && (
+            <label className="field">
+              <span className="label">Quantity</span>
+              <input
+                className="input"
+                type="number"
+                min="1"
+                step="1"
+                value={form.stockQuantity}
+                onChange={(e) => setField("stockQuantity", e.target.value)}
+                placeholder="e.g. 10"
+                required
+              />
+            </label>
+          )}
         </div>
         <div className="modal-footer">
           <button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button>

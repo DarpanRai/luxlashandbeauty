@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, LayoutDashboard, Users, Package, ShoppingBag, CalendarClock, Pencil, Send, Check, MessageCircle, RefreshCw, Sparkles, Scissors, History, Bell, AlertTriangle } from "lucide-react";
+import { Plus, Search, LayoutDashboard, Users, Package, ShoppingBag, CalendarClock, Pencil, Send, Check, MessageCircle, RefreshCw, Sparkles, Scissors, History, Bell, AlertTriangle, Archive } from "lucide-react";
 import { CATEGORY } from "../../constants/categories.js";
 import { STATUS } from "../../constants/status.js";
 import CategoryDashboard from "../dashboard/CategoryDashboard.jsx";
@@ -9,6 +9,7 @@ import ReminderModal from "./ReminderModal.jsx";
 import SentHistoryModal from "./SentHistoryModal.jsx";
 import ProductsPanel from "../products/ProductsPanel.jsx";
 import SellItemsPanel from "../products/SellItemsPanel.jsx";
+import StockPanel from "../products/StockPanel.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 import { getTodayISO, formatDisplayDate, formatDisplayTime } from "../../utils/date.js";
@@ -456,6 +457,9 @@ export default function CategoryPage({
           <button className={`sub-tab ${subTab === "sellItems" ? "active" : ""}`} style={subTab === "sellItems" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("sellItems")}>
             <ShoppingBag size={15} /> Sell item
           </button>
+          <button className={`sub-tab ${subTab === "stock" ? "active" : ""}`} style={subTab === "stock" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("stock")}>
+            <Archive size={15} /> Stock
+          </button>
         </div>
       </div>
 
@@ -464,7 +468,9 @@ export default function CategoryPage({
       ) : subTab === "products" ? (
         <ProductsPanel category={category} meta={meta} products={products} onChange={onProductsChange} />
       ) : subTab === "sellItems" ? (
-        <SellItemsPanel category={category} meta={meta} sellItems={sellItems} onChange={onSellItemsChange} />
+        <SellItemsPanel category={category} meta={meta} sellItems={sellItems} onChange={onSellItemsChange} products={products} onProductsChange={onProductsChange} />
+      ) : subTab === "stock" ? (
+        <StockPanel meta={meta} products={products} />
       ) : subTab === "payments" ? (
         appointmentsPanel
       ) : (

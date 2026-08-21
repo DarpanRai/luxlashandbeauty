@@ -56,6 +56,8 @@ export interface Product {
   name: string;
   brand?: string;
   cost: number;
+  /** Set only when this expense was also added to stock — its presence (not just a truthy value) is what makes an item show up in the Stock tab. */
+  stockQuantity?: number;
   date: string; // YYYY-MM-DD — the month it's counted in for expense totals
 }
 
@@ -66,6 +68,10 @@ export interface SellItem {
   brand: string;
   price: number;
   date: string; // YYYY-MM-DD — the month it's counted in for revenue totals
+  /** Only set when this sale was recorded against a stocked item (the normal "Add item" flow) — used once, at creation, to decrement that Product's stockQuantity. Absent on items added before stock-linking existed, and on manual edits. */
+  productId?: string;
+  /** How many units this sale covers — only meaningful alongside productId. */
+  quantity?: number;
 }
 
 export type StaffStatus = "active" | "inactive";

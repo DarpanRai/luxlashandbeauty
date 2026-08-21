@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, Package } from "lucide-react";
+import { Plus, Search, Package, Check } from "lucide-react";
 import { generateId } from "../../utils/id.js";
 import { formatMoney } from "../../utils/format.js";
 import { getMonthKey, getMonthLabel, getMonthOptions, getTodayISO, formatDisplayDate } from "../../utils/date.js";
@@ -15,8 +15,20 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
   const notify = useToast();
 
   const handleSave = (data) => {
-    onChange([...products, { id: generateId(), category, name: data.name.trim(), brand: data.brand.trim(), price: 0, cost: Number(data.cost) || 0, date: data.date }]);
-    notify("Expense added");
+    onChange([
+      ...products,
+      {
+        id: generateId(),
+        category,
+        name: data.name.trim(),
+        brand: data.brand.trim(),
+        price: 0,
+        cost: Number(data.cost) || 0,
+        date: data.date,
+        ...(data.addToStock ? { stockQuantity: Number(data.stockQuantity) } : {}),
+      },
+    ]);
+    notify(data.addToStock ? "Expense added and stocked" : "Expense added");
     setFormOpen(false);
   };
 
@@ -66,16 +78,30 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
         <>
           <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>Name</th>{!isStudio && <th>Brand name</th>}<th>Cost</th><th>Date</th></tr></thead>
+            <thead><tr><th>Name</th>{!isStudio && <th>Brand name</th>}<th>Cost</th><th>Date</th>{!isStudio && <th>Added to stock</th>}</tr></thead>
             <tbody>
-              {filteredProducts.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.name}</td>
-                  {!isStudio && <td>{p.brand || "—"}</td>}
-                  <td>{formatMoney(p.cost)}</td>
-                  <td>{formatDisplayDate(p.date, "—")}</td>
-                </tr>
-              ))}
+              {filteredProducts.map((p) => {
+                const inStock = p.stockQuantity != null && p.stockQuantity > 0;
+                return (
+                  <tr key={p.id}>
+                    <td>{p.name}</td>
+                    {!isStudio && <td>{p.brand || "—"}</td>}
+                    <td>{formatMoney(p.cost)}</td>
+                    <td>{formatDisplayDate(p.date, "—")}</td>
+                    {!isStudio && (
+                      <td>
+                        {inStock ? (
+                          <span className="chip" style={{ background: "#E1EEE7", color: "#276148", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <Check size={11} /> Yes
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--ink-muted)" }}>No</span>
+                        )}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
           </div>
