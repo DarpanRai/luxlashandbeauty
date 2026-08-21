@@ -138,12 +138,17 @@ export type ExtensionStage = "infill" | "fullset" | null;
 // right now. Start of week 2 through end of week 3 (elapsed day 7-20): an infill nudge.
 // Start of week 4 on (elapsed day 21+, unbounded): the lashes have shed too much to
 // infill, so it switches to a full-set-with-free-removal offer.
+//
+// A refill booking (refillId set, no main serviceId — see CustomerFormModal) is
+// touching up an existing extension set, so it follows the exact same infill/full-set
+// cadence as booking one of the 4 extension-set services directly (s-l3–s-l6) — it's
+// not a new rule, just the same one recognizing refills as the same kind of visit.
 export const getExtensionStage = (
-  customer: Pick<Customer, "id" | "serviceId" | "status" | "appointmentDate">,
+  customer: Pick<Customer, "id" | "serviceId" | "refillId" | "status" | "appointmentDate">,
   allCustomers: Pick<Customer, "rebookedFromId">[]
 ): ExtensionStage => {
   if (customer.status !== "completed") return null;
-  if (!INFILL_SERVICE_IDS.includes(customer.serviceId)) return null;
+  if (!INFILL_SERVICE_IDS.includes(customer.serviceId) && !customer.refillId) return null;
   if (isSuperseded(customer, allCustomers)) return null;
   const elapsed = daysSince(customer.appointmentDate);
   if (elapsed >= FULLSET_WINDOW_START_DAYS) return "fullset";
