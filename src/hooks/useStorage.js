@@ -24,6 +24,13 @@ const writeCache = (key, value) => {
     // sessionStorage unavailable/full — cache is a pure speed optimization, safe to skip
   }
 };
+const clearCache = (key) => {
+  try {
+    sessionStorage.removeItem(CACHE_PREFIX + key);
+  } catch {
+    // sessionStorage unavailable — nothing to clear
+  }
+};
 
 // Same [value, persist, loaded] shape as before — every caller (App.jsx etc.) is
 // unchanged. Only the backend underneath swapped from window.storage to a Supabase
@@ -56,6 +63,15 @@ export function useStorage(key, fallback) {
           if (data) {
             setValue(data.value);
             writeCache(key, data.value);
+          } else {
+            // Row genuinely doesn't exist (e.g. deleted directly in the database) —
+            // that's a real "no data" result, not "still loading, keep whatever we
+            // had". Previously this branch did nothing, so a value already sitting
+            // in state (initial fallback, or worse, a stale sessionStorage cache
+            // from before the row was deleted) would keep rendering forever, since
+            // nothing ever told it the row was gone.
+            setValue(fallback);
+            clearCache(key);
           }
           setError(null);
         }
