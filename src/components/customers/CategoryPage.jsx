@@ -468,7 +468,7 @@ export default function CategoryPage({
       ) : subTab === "products" ? (
         <ProductsPanel category={category} meta={meta} products={products} onChange={onProductsChange} />
       ) : subTab === "sellItems" ? (
-        <SellItemsPanel category={category} meta={meta} sellItems={sellItems} onChange={onSellItemsChange} products={products} onProductsChange={onProductsChange} />
+        <SellItemsPanel category={category} meta={meta} sellItems={sellItems} onChange={onSellItemsChange} products={products} onProductsChange={onProductsChange} role={role} />
       ) : subTab === "stock" ? (
         <StockPanel meta={meta} products={products} />
       ) : subTab === "payments" ? (

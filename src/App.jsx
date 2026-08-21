@@ -94,6 +94,7 @@ export default function App() {
   const [staff, setStaff, staffLoaded, staffError] = useStorage("studio_staff", []);
   const [studioExpenses, setStudioExpenses, studioExpensesLoaded, studioExpensesError] = useStorage("studio_general_expenses", []);
   const [staffSalaries, setStaffSalaries, staffSalariesLoaded, staffSalariesError] = useStorage("studio_staff_salaries", []);
+  const [staffIncentives, setStaffIncentives, staffIncentivesLoaded, staffIncentivesError] = useStorage("studio_staff_incentives", []);
   const online = useOnlineStatus();
   const wasOffline = useRef(false);
   const [view, setViewState] = useState(getViewFromLocation);
@@ -142,12 +143,12 @@ export default function App() {
     if (patch.role) setRoleState(patch.role);
   };
 
-  const loaded = customersLoaded && productsLoaded && sellItemsLoaded && servicesLoaded && staffLoaded && studioExpensesLoaded && staffSalariesLoaded;
+  const loaded = customersLoaded && productsLoaded && sellItemsLoaded && servicesLoaded && staffLoaded && studioExpensesLoaded && staffSalariesLoaded && staffIncentivesLoaded;
   // Any one of these failing means the app can't show trustworthy data — better to say
   // so plainly than let a section quietly render as "0 customers" when it's really
   // "couldn't load customers". navigator.onLine already ruled out "no internet" by the
   // time this is checked, so this specifically means Supabase itself is unreachable.
-  const storageError = customersError || productsError || sellItemsError || servicesError || staffError || studioExpensesError || staffSalariesError;
+  const storageError = customersError || productsError || sellItemsError || servicesError || staffError || studioExpensesError || staffSalariesError || staffIncentivesError;
 
   // If we were offline and just came back, do a full reload rather than trying to
   // patch up whichever fetches failed mid-outage — simpler and more reliable.
@@ -294,11 +295,11 @@ export default function App() {
             {!loaded ? (
               <div className="loading-state">Loading studio data…</div>
             ) : renderedView === "overview" ? (
-              <OverviewDashboard customers={customers} services={services} products={products} sellItems={sellItems} studioExpenses={studioExpenses} staffSalaries={staffSalaries} />
+              <OverviewDashboard customers={customers} services={services} products={products} sellItems={sellItems} studioExpenses={studioExpenses} staffSalaries={staffSalaries} staffIncentives={staffIncentives} />
             ) : renderedView === "staff" ? (
-              <StaffPage staff={staff} setStaff={setStaff} />
+              <StaffPage staff={staff} setStaff={setStaff} role={role} />
             ) : renderedView === "expenses" ? (
-              <GeneralExpensesPage role={role} items={studioExpenses} onItemsChange={setStudioExpenses} staff={staff} staffSalaries={staffSalaries} setStaffSalaries={setStaffSalaries} />
+              <GeneralExpensesPage role={role} items={studioExpenses} onItemsChange={setStudioExpenses} staff={staff} staffSalaries={staffSalaries} setStaffSalaries={setStaffSalaries} staffIncentives={staffIncentives} setStaffIncentives={setStaffIncentives} />
             ) : renderedView === "team" ? (
               <TeamAccountsPage account={account} onOwnAccountUpdated={updateOwnAccount} />
             ) : (

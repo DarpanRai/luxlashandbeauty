@@ -7,14 +7,20 @@ import StaffDocumentsModal from "./StaffDocumentsModal.jsx";
 import ConfirmDialog from "../common/ConfirmDialog.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 
-export default function StaffPage({ staff, setStaff }) {
+export default function StaffPage({ staff, setStaff, role }) {
+  // Viewing/downloading a staff member's photo full-size is an owner-only affordance —
+  // staff role can never reach this page today (see App.jsx's STAFF_BLOCKED_VIEWS), but
+  // this keeps the feature explicitly gated in case that routing rule ever loosens.
+  const photoViewable = role !== "staff";
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
   const [viewingDocsFor, setViewingDocsFor] = useState(null);
+  const [viewingPhotoFor, setViewingPhotoFor] = useState(null);
   const notify = useToast();
   const editingStaff = editingId ? staff.find((s) => s.id === editingId) : null;
   const viewingDocsStaff = viewingDocsFor ? staff.find((s) => s.id === viewingDocsFor) : null;
+  const viewingPhotoStaff = viewingPhotoFor ? staff.find((s) => s.id === viewingPhotoFor) : null;
 
   const handleSave = (data) => {
     if (editingId) {
@@ -66,8 +72,31 @@ export default function StaffPage({ staff, setStaff }) {
           <tbody>
             {staff.map((s) => (
               <tr key={s.id}>
-                <td style={{ fontFamily: "var(--font-body)", fontWeight: 600 }}>{s.name}</td>
-                <td>{s.role}</td>
+                <td style={{ fontFamily: "var(--font-body)", fontWeight: 600 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {s.photo ? (
+                      photoViewable ? (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          style={{ padding: 0, borderRadius: "50%" }}
+                          onClick={() => setViewingPhotoFor(s.id)}
+                          title="View photo"
+                        >
+                          <img src={s.photo} alt={s.name} style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%", border: "1px solid var(--border)" }} />
+                        </button>
+                      ) : (
+                        <img src={s.photo} alt={s.name} style={{ width: 28, height: 28, objectFit: "cover", borderRadius: "50%", border: "1px solid var(--border)" }} />
+                      )
+                    ) : (
+                      <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--staff-tint, #E1EEE7)", color: "var(--staff-dark, #276148)", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                        {s.name.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                    )}
+                    {s.name}
+                  </div>
+                </td>
+                <td>{s.role}{s.additionalRole && s.additionalRole !== "none" ? `, ${s.additionalRole}` : ""}</td>
                 <td>{s.phone}</td>
                 <td>{formatDisplayDate(s.joinedDate)}</td>
                 <td><span className="chip" style={{ background: s.status === "active" ? "#E1EEE7" : "#F5E6E1", color: s.status === "active" ? "#276148" : "#B3452F" }}>{s.status === "active" ? "Active" : "Inactive"}</span></td>
@@ -116,6 +145,16 @@ export default function StaffPage({ staff, setStaff }) {
           staffName={viewingDocsStaff.name}
           documents={viewingDocsStaff.documents || []}
           onClose={() => setViewingDocsFor(null)}
+        />
+      )}
+
+      {viewingPhotoStaff && photoViewable && (
+        <StaffDocumentsModal
+          staffName={viewingPhotoStaff.name}
+          documents={viewingPhotoStaff.photo ? [viewingPhotoStaff.photo] : []}
+          title={`${viewingPhotoStaff.name}'s photo`}
+          itemLabel="photo"
+          onClose={() => setViewingPhotoFor(null)}
         />
       )}
 

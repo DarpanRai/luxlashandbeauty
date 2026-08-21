@@ -33,7 +33,13 @@
   --font-mono: 'IBM Plex Mono', monospace;
 }
 
-.app-root {
+/* Design tokens live on :root, not .app-root — the toast stack (ToastProvider
+   in main.jsx) renders as a sibling of .app-root, not a descendant, so a var()
+   scoped to .app-root silently resolves to nothing there. That's what made the
+   toast background fall back to fully-transparent (only the white text/icon
+   were visible, blending into the page behind it). :root is an ancestor of
+   everything, so this makes every token resolve everywhere. */
+:root {
   --bg: #F8F5F3;
   --surface: #FFFFFF;
   --ink: #241922;
@@ -55,7 +61,9 @@
   --font-display: 'Fraunces', serif;
   --font-body: 'Inter', sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
+}
 
+.app-root {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-body);
@@ -190,6 +198,20 @@ textarea.input { resize: vertical; min-height: 80px; }
 .label-hint { font-weight: 400; opacity: .8; }
 .input { border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; font-size: 13.5px; font-family: var(--font-body); color: var(--ink); background: var(--surface); width: 100%; }
 .input:focus { outline: none; border-color: var(--primary); }
+
+.assignee-field { position: relative; }
+.assignee-dropdown {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
+  box-shadow: 0 10px 28px rgba(36,25,34,0.16); z-index: 20;
+  max-height: 220px; overflow-y: auto; padding: 4px;
+}
+.assignee-option { display: flex; align-items: center; gap: 9px; padding: 7px 9px; border-radius: 7px; cursor: pointer; font-size: 13.5px; }
+.assignee-option:hover { background: var(--bg); }
+.assignee-option-avatar { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; border: 1px solid var(--border); flex-shrink: 0; }
+.assignee-option-avatar-fallback { width: 26px; height: 26px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+.assignee-option-name { flex: 1; }
+.assignee-option-busy { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; background: var(--luxlash-tint); color: var(--luxlash-dark); white-space: nowrap; }
 
 .dash-controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .month-select { width: auto; font-weight: 600; }

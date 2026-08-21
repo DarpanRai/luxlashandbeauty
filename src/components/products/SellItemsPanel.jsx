@@ -9,7 +9,8 @@ import { useToast } from "../../context/ToastContext.jsx";
 // Add-only, deliberately — a recorded sale already moved stock quantity once
 // (see handleSave), and there's no UI for un-doing or re-doing that, so editing a
 // past sale was removed rather than left half-correct.
-export default function SellItemsPanel({ category, meta, sellItems, onChange, products, onProductsChange }) {
+export default function SellItemsPanel({ category, meta, sellItems, onChange, products, onProductsChange, role }) {
+  const totalVisible = role !== "staff";
   const [formOpen, setFormOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(getTodayISO()));
@@ -93,10 +94,12 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange, pr
             </tbody>
           </table>
           </div>
-          <div className="panel" style={{ marginTop: 14 }}>
-            <div className="panel-title">Total {meta.label.toLowerCase()} sales — {getMonthLabel(selectedMonth)}</div>
-            <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalSales)}</div>
-          </div>
+          {totalVisible && (
+            <div className="panel" style={{ marginTop: 14 }}>
+              <div className="panel-title">Total {meta.label.toLowerCase()} sales — {getMonthLabel(selectedMonth)}</div>
+              <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalSales)}</div>
+            </div>
+          )}
         </>
       )}
 

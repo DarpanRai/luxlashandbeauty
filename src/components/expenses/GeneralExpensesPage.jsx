@@ -8,19 +8,27 @@ import { useToast } from "../../context/ToastContext.jsx";
 
 const META = { label: "Studio", accent: "var(--staff)" };
 
-export default function GeneralExpensesPage({ role, items, onItemsChange, staff, staffSalaries, setStaffSalaries }) {
+export default function GeneralExpensesPage({ role, items, onItemsChange, staff, staffSalaries, setStaffSalaries, staffIncentives, setStaffIncentives }) {
   const salaryVisible = role !== "staff";
   const [subTab, setSubTab] = useState("items");
   const [salaryMonth, setSalaryMonth] = useState(() => getMonthKey(getTodayISO()));
   const [editingStaffId, setEditingStaffId] = useState(null);
+  const [editingIncentiveId, setEditingIncentiveId] = useState(null);
   const notify = useToast();
 
-  const monthOptions = useMemo(() => getMonthOptions(staffSalaries.map((r) => r.month)), [staffSalaries]);
+  const monthOptions = useMemo(
+    () => getMonthOptions([...staffSalaries.map((r) => r.month), ...staffIncentives.map((r) => r.month)]),
+    [staffSalaries, staffIncentives]
+  );
 
   const getSalaryFor = (staffId) => staffSalaries.find((r) => r.staffId === staffId && r.month === salaryMonth);
+  const getIncentiveFor = (staffId) => staffIncentives.find((r) => r.staffId === staffId && r.month === salaryMonth);
 
   const monthRecords = useMemo(() => staffSalaries.filter((r) => r.month === salaryMonth), [staffSalaries, salaryMonth]);
   const totalSalaries = useMemo(() => monthRecords.reduce((sum, r) => sum + (Number(r.amount) || 0), 0), [monthRecords]);
+
+  const monthIncentiveRecords = useMemo(() => staffIncentives.filter((r) => r.month === salaryMonth), [staffIncentives, salaryMonth]);
+  const totalIncentives = useMemo(() => monthIncentiveRecords.reduce((sum, r) => sum + (Number(r.amount) || 0), 0), [monthIncentiveRecords]);
 
   const handleSalaryChange = (staffId, value) => {
     const existing = getSalaryFor(staffId);
@@ -34,6 +42,20 @@ export default function GeneralExpensesPage({ role, items, onItemsChange, staff,
   const handleSalaryBlur = () => {
     setEditingStaffId(null);
     notify("Salary updated");
+  };
+
+  const handleIncentiveChange = (staffId, value) => {
+    const existing = getIncentiveFor(staffId);
+    if (existing) {
+      setStaffIncentives(staffIncentives.map((r) => (r.id === existing.id ? { ...r, amount: value } : r)));
+    } else {
+      setStaffIncentives([...staffIncentives, { id: generateId(), staffId, month: salaryMonth, amount: value }]);
+    }
+  };
+
+  const handleIncentiveBlur = () => {
+    setEditingIncentiveId(null);
+    notify("Incentive updated");
   };
 
   return (
@@ -77,16 +99,19 @@ export default function GeneralExpensesPage({ role, items, onItemsChange, staff,
               </div>
               <div className="table-scroll">
               <table className="data-table">
-                <thead><tr><th>Name</th><th>Role</th><th>Salary — {getMonthLabel(salaryMonth)}</th><th>Status</th></tr></thead>
+                <thead><tr><th>Name</th><th>Role</th><th>Salary — {getMonthLabel(salaryMonth)}</th><th>Incentive — {getMonthLabel(salaryMonth)}</th><th>Status</th></tr></thead>
                 <tbody>
                   {staff.map((s) => {
                     const record = getSalaryFor(s.id);
+                    const incentiveRecord = getIncentiveFor(s.id);
                     const isPaid = Number(record?.amount) > 0;
                     const isEditing = editingStaffId === s.id;
+                    const isEditingIncentive = editingIncentiveId === s.id;
+                    const isInactive = s.status === "inactive";
                     return (
                       <tr key={s.id}>
                         <td style={{ fontFamily: "var(--font-body)", fontWeight: 600 }}>{s.name}</td>
-                        <td>{s.role}</td>
+                        <td>{s.role}{s.additionalRole && s.additionalRole !== "none" ? `, ${s.additionalRole}` : ""}</td>
                         <td>
                           {isEditing ? (
                             <input
@@ -104,20 +129,63 @@ export default function GeneralExpensesPage({ role, items, onItemsChange, staff,
                           ) : (
                             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                               <span>{record?.amount ? formatMoney(record.amount) : "—"}</span>
-                              <button type="button" className="icon-btn" onClick={() => setEditingStaffId(s.id)}><Pencil size={14} /></button>
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => setEditingStaffId(s.id)}
+                                disabled={isInactive}
+                                title={isInactive ? "Staff is inactive" : undefined}
+                                style={isInactive ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
+                              >
+                                <Pencil size={14} />
+                              </button>
                             </div>
                           )}
                         </td>
                         <td>
-                          <span
-                            className="chip"
-                            style={{
-                              background: isPaid ? "#E1EEE7" : "#F5E6E1",
-                              color: isPaid ? "#276148" : "#B3452F",
-                            }}
-                          >
-                            {isPaid ? "Paid" : "Unpaid"}
-                          </span>
+                          {isEditingIncentive ? (
+                            <input
+                              className="input"
+                              type="number"
+                              step="0.01"
+                              autoFocus
+                              style={{ maxWidth: 140 }}
+                              value={incentiveRecord?.amount ?? ""}
+                              placeholder="0.00"
+                              onChange={(e) => handleIncentiveChange(s.id, e.target.value)}
+                              onBlur={handleIncentiveBlur}
+                              onKeyDown={(e) => e.key === "Enter" && e.target.blur()}
+                            />
+                          ) : (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <span>{incentiveRecord?.amount ? formatMoney(incentiveRecord.amount) : "—"}</span>
+                              <button
+                                type="button"
+                                className="icon-btn"
+                                onClick={() => setEditingIncentiveId(s.id)}
+                                disabled={isInactive}
+                                title={isInactive ? "Staff is inactive" : undefined}
+                                style={isInactive ? { opacity: 0.35, cursor: "not-allowed" } : undefined}
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {isInactive ? (
+                            <span className="chip" style={{ background: "#F5E6E1", color: "#B3452F" }}>Inactive</span>
+                          ) : (
+                            <span
+                              className="chip"
+                              style={{
+                                background: isPaid ? "#E1EEE7" : "#F5E6E1",
+                                color: isPaid ? "#276148" : "#B3452F",
+                              }}
+                            >
+                              {isPaid ? "Paid" : "Unpaid"}
+                            </span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -125,9 +193,15 @@ export default function GeneralExpensesPage({ role, items, onItemsChange, staff,
                 </tbody>
               </table>
               </div>
-              <div className="panel" style={{ marginTop: 14 }}>
-                <div className="panel-title">Total salaries — {getMonthLabel(salaryMonth)}</div>
-                <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalSalaries)}</div>
+              <div style={{ display: "flex", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
+                <div className="panel" style={{ margin: 0, flex: 1, minWidth: 200 }}>
+                  <div className="panel-title">Total salaries — {getMonthLabel(salaryMonth)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalSalaries)}</div>
+                </div>
+                <div className="panel" style={{ margin: 0, flex: 1, minWidth: 200 }}>
+                  <div className="panel-title">Total incentives — {getMonthLabel(salaryMonth)}</div>
+                  <div style={{ fontSize: 22, fontWeight: 700 }}>{formatMoney(totalIncentives)}</div>
+                </div>
               </div>
             </>
           )}

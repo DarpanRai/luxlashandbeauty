@@ -44,6 +44,18 @@ const getBookingWindow = (c) => {
 
 const windowsOverlap = (a, b) => a.start <= b.end && b.start <= a.end;
 
+// Inactive staff can't be newly assigned — they're excluded from the picker on both
+// categories (and from the Rebook flow, which reuses this same form). An appointment
+// already assigned to someone who's since gone inactive keeps showing their name as
+// plain text; only the suggestion list going forward is filtered.
+const isMakeupArtist = (s) =>
+  s.status !== "inactive" &&
+  ((s.role || "").startsWith("Makeup Artist") || (s.additionalRole || "").startsWith("Makeup Artist"));
+
+const isLuxlashArtist = (s) =>
+  s.status !== "inactive" &&
+  ((s.role || "").startsWith("Luxlash Artist") || (s.additionalRole || "").startsWith("Luxlash Artist"));
+
 const minutesToTime = (mins) =>
   `${String(Math.floor(mins / 60) % 24).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
 
@@ -80,8 +92,39 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
   const hasBookableItem = !!form.serviceId || serviceOptional;
   const addonsVisible = category !== "makeup" || form.serviceId === MAKEUP_ADDON_SERVICE_ID;
   const [errors, setErrors] = useState({});
+  const [assigneeOpen, setAssigneeOpen] = useState(false);
+
+  const pickerStaff =
+    category === "makeup"
+      ? (staff || []).filter(isMakeupArtist)
+      : category === "luxlash"
+      ? (staff || []).filter(isLuxlashArtist)
+      : [];
+  const assigneeMatches = pickerStaff.filter((s) =>
+    s.name.toLowerCase().includes((form.assignedTo || "").trim().toLowerCase())
+  );
+  const assigneePickerLabel = category === "makeup" ? "makeup artist" : "luxlash artist";
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
+
+  // Same rule validate() enforces on submit — pulled out so the dropdown can show
+  // a "busy" hint per staff member ahead of time, without duplicating the overlap
+  // logic. Makeup is exempt (see validate()), so this always returns null there.
+  const findConflictingBooking = (assigneeName) => {
+    if (category === "makeup" || !assigneeName || !form.appointmentTime || !form.appointmentDate) return null;
+    const normalizedAssignee = assigneeName.trim().toLowerCase();
+    const newWindow = getBookingWindow({ category, serviceId: form.serviceId, appointmentTime: form.appointmentTime });
+    return (
+      (allCustomers || []).find(
+        (c) =>
+          c.id !== initial?.id &&
+          c.status !== "cancelled" &&
+          c.appointmentDate === form.appointmentDate &&
+          (c.assignedTo || "").trim().toLowerCase() === normalizedAssignee &&
+          windowsOverlap(newWindow, getBookingWindow(c))
+      ) || null
+    );
+  };
 
   const validate = () => {
     const next = {};
@@ -100,16 +143,8 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
       // deliberately exempt — one artist can be assigned to multiple makeup
       // customers at the same date and time (e.g. a bridal party moving through
       // touch-ups together), so this check only ever runs for non-makeup bookings.
-      const normalizedAssignee = form.assignedTo.trim().toLowerCase();
       const newWindow = getBookingWindow({ category, serviceId: form.serviceId, appointmentTime: form.appointmentTime });
-      const conflictingBooking = (allCustomers || []).find(
-        (c) =>
-          c.id !== initial?.id &&
-          c.status !== "cancelled" &&
-          c.appointmentDate === form.appointmentDate &&
-          (c.assignedTo || "").trim().toLowerCase() === normalizedAssignee &&
-          windowsOverlap(newWindow, getBookingWindow(c))
-      );
+      const conflictingBooking = findConflictingBooking(form.assignedTo);
       if (conflictingBooking) {
         const busyUntil = getBookingWindow(conflictingBooking).end;
         const untilLabel = busyUntil > newWindow.start ? ` (busy until ${formatDisplayTime(minutesToTime(busyUntil))})` : "";
@@ -281,21 +316,63 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
             />
             {errors.appointmentTime && <span className="field-error">{errors.appointmentTime}</span>}
           </label>
-          <label className="field">
-            <span className="label">Assigned to <span className="label-hint">(pick a staff member or type a name)</span></span>
-            <input
-              className={`input${errors.assignedTo ? " invalid" : ""}`}
-              list="assigned-staff-options"
-              value={form.assignedTo || ""}
-              onChange={(e) => setField("assignedTo", e.target.value)}
-              placeholder="Select or type a name"
-              disabled={locked}
-            />
-            <datalist id="assigned-staff-options">
-              {(staff || []).map((s) => (<option key={s.id} value={s.name} />))}
-            </datalist>
-            {errors.assignedTo && <span className="field-error">{errors.assignedTo}</span>}
-          </label>
+          {category === "makeup" || category === "luxlash" ? (
+            <label className="field assignee-field">
+              <span className="label">Assigned to <span className="label-hint">(pick a {assigneePickerLabel} or type a name)</span></span>
+              <input
+                className={`input${errors.assignedTo ? " invalid" : ""}`}
+                value={form.assignedTo || ""}
+                onChange={(e) => { setField("assignedTo", e.target.value); setAssigneeOpen(true); }}
+                onFocus={() => setAssigneeOpen(true)}
+                onBlur={() => setTimeout(() => setAssigneeOpen(false), 120)}
+                placeholder="Select or type a name"
+                disabled={locked}
+                autoComplete="off"
+              />
+              {assigneeOpen && assigneeMatches.length > 0 && (
+                <div className="assignee-dropdown">
+                  {assigneeMatches.map((s) => {
+                    const conflict = findConflictingBooking(s.name);
+                    const busyUntil = conflict ? minutesToTime(getBookingWindow(conflict).end) : null;
+                    return (
+                      <div
+                        key={s.id}
+                        className="assignee-option"
+                        onMouseDown={(e) => { e.preventDefault(); setField("assignedTo", s.name); setAssigneeOpen(false); }}
+                      >
+                        {s.photo ? (
+                          <img src={s.photo} alt={s.name} className="assignee-option-avatar" />
+                        ) : (
+                          <span className="assignee-option-avatar-fallback" style={{ background: meta.tint, color: meta.text }}>
+                            {s.name.trim().charAt(0).toUpperCase() || "?"}
+                          </span>
+                        )}
+                        <span className="assignee-option-name">{s.name}</span>
+                        {busyUntil && <span className="assignee-option-busy">Busy until {formatDisplayTime(busyUntil)}</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {errors.assignedTo && <span className="field-error">{errors.assignedTo}</span>}
+            </label>
+          ) : (
+            <label className="field">
+              <span className="label">Assigned to <span className="label-hint">(pick a staff member or type a name)</span></span>
+              <input
+                className={`input${errors.assignedTo ? " invalid" : ""}`}
+                list="assigned-staff-options"
+                value={form.assignedTo || ""}
+                onChange={(e) => setField("assignedTo", e.target.value)}
+                placeholder="Select or type a name"
+                disabled={locked}
+              />
+              <datalist id="assigned-staff-options">
+                {(staff || []).map((s) => (<option key={s.id} value={s.name} />))}
+              </datalist>
+              {errors.assignedTo && <span className="field-error">{errors.assignedTo}</span>}
+            </label>
+          )}
           {category === "luxlash" && (
             <div className="field">
               <span className="label">Lash removal</span>

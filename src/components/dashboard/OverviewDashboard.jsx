@@ -12,7 +12,7 @@ import { getNow } from "../../lib/dateProvider.js";
 import KpiCard from "./KpiCard.tsx";
 import RevenueCostChart from "../charts/RevenueCostChart.jsx";
 
-export default function OverviewDashboard({ customers, services, products, sellItems, studioExpenses = [], staffSalaries = [] }) {
+export default function OverviewDashboard({ customers, services, products, sellItems, studioExpenses = [], staffSalaries = [], staffIncentives = [] }) {
   const serviceMap = useMemo(() => Object.fromEntries(services.map((s) => [s.id, s])), [services]);
   // "Completed" stays the strict truth for the completed-count KPI and service cost.
   // "Revenue" appointments are broader: completed, or any appointment with an advance collected.
@@ -29,8 +29,9 @@ export default function OverviewDashboard({ customers, services, products, sellI
       ...sellItems.map((p) => getMonthKey(p.date)),
       ...studioExpenses.map((p) => getMonthKey(p.date)),
       ...staffSalaries.map((r) => r.month),
+      ...staffIncentives.map((r) => r.month),
     ]),
-    [revenueAppointments, products, sellItems, studioExpenses, staffSalaries]
+    [revenueAppointments, products, sellItems, studioExpenses, staffSalaries, staffIncentives]
   );
 
   const [selectedYear, setSelectedYear] = useState(() => getNow().getFullYear());
@@ -42,8 +43,9 @@ export default function OverviewDashboard({ customers, services, products, sellI
       ...sellItems.map((p) => Number(getMonthKey(p.date).slice(0, 4)) || undefined),
       ...studioExpenses.map((p) => Number(getMonthKey(p.date).slice(0, 4)) || undefined),
       ...staffSalaries.map((r) => Number((r.month || "").slice(0, 4)) || undefined),
+      ...staffIncentives.map((r) => Number((r.month || "").slice(0, 4)) || undefined),
     ]),
-    [revenueAppointments, products, sellItems, studioExpenses, staffSalaries]
+    [revenueAppointments, products, sellItems, studioExpenses, staffSalaries, staffIncentives]
   );
   const YEAR_MONTHS = useMemo(() => getYearMonths(selectedYear), [selectedYear]);
 
@@ -74,7 +76,11 @@ export default function OverviewDashboard({ customers, services, products, sellI
     () => staffSalaries.filter((r) => r.month === selectedMonth).reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
     [staffSalaries, selectedMonth]
   );
-  const totalExpenses = totalProductCost + totalStudioExpenses + totalSalaries;
+  const totalIncentives = useMemo(
+    () => staffIncentives.filter((r) => r.month === selectedMonth).reduce((sum, r) => sum + (Number(r.amount) || 0), 0),
+    [staffIncentives, selectedMonth]
+  );
+  const totalExpenses = totalProductCost + totalStudioExpenses + totalSalaries + totalIncentives;
   const totalSales = useMemo(
     () => sellItems.filter((p) => getMonthKey(p.date) === selectedMonth).reduce((sum, p) => sum + (Number(p.price) || 0), 0),
     [sellItems, selectedMonth]
@@ -114,14 +120,15 @@ export default function OverviewDashboard({ customers, services, products, sellI
     });
     return YEAR_MONTHS.map((m) => {
       const salariesForMonth = staffSalaries.filter((r) => r.month === m).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+      const incentivesForMonth = staffIncentives.filter((r) => r.month === m).reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
       const productCostForMonth = products.filter((p) => getMonthKey(p.date) === m).reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
       const studioExpensesForMonth = studioExpenses.filter((p) => getMonthKey(p.date) === m).reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
       const salesForMonth = sellItems.filter((p) => getMonthKey(p.date) === m).reduce((sum, p) => sum + (Number(p.price) || 0), 0);
-      const expenses = productCostForMonth + studioExpensesForMonth + salariesForMonth;
+      const expenses = productCostForMonth + studioExpensesForMonth + salariesForMonth + incentivesForMonth;
       const revenue = (appointmentTotals[m] || 0) + salesForMonth;
       return { month: m, revenue, expenses, profit: revenue - expenses };
     });
-  }, [revenueAppointments, serviceMap, staffSalaries, products, studioExpenses, sellItems, selectedYear, YEAR_MONTHS]);
+  }, [revenueAppointments, serviceMap, staffSalaries, staffIncentives, products, studioExpenses, sellItems, selectedYear, YEAR_MONTHS]);
   const yearTotalRevenue = useMemo(() => yearRevenueByMonth.reduce((sum, m) => sum + m.revenue, 0), [yearRevenueByMonth]);
   const yearTotalExpenses = useMemo(() => yearRevenueByMonth.reduce((sum, m) => sum + m.expenses, 0), [yearRevenueByMonth]);
   const yearTotalProfit = yearTotalRevenue - yearTotalExpenses;

@@ -79,7 +79,9 @@ export type StaffStatus = "active" | "inactive";
 export interface StaffMember {
   id: string;
   name: string;
+  photo?: string; // data: URI, profile picture
   role: string;
+  additionalRole?: string; // "none" or a second STAFF_ROLE_OPTIONS value
   phone: string;
   joinedDate: string; // YYYY-MM-DD
   status: StaffStatus;
@@ -87,6 +89,13 @@ export interface StaffMember {
 }
 
 export interface StaffSalaryRecord {
+  id: string;
+  staffId: string;
+  month: string; // YYYY-MM
+  amount: number | string;
+}
+
+export interface StaffIncentiveRecord {
   id: string;
   staffId: string;
   month: string; // YYYY-MM
