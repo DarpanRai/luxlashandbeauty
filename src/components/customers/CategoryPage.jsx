@@ -205,6 +205,232 @@ export default function CategoryPage({
     notify("Message sent");
   };
 
+  // Rendered in two places: as its own full-width "Appointments" tab, and docked
+  // on the right side of the "Customers" tab — kept as one definition so the two
+  // never drift out of sync with each other.
+  const appointmentsPanel = (
+    <>
+      {bookingHistory.length > 0 && (
+        <div className="search-row">
+          <Search size={16} className="search-icon" />
+          <input
+            className="search-input"
+            placeholder="Search by name or service"
+            value={appointmentsQuery}
+            onChange={(e) => setAppointmentsQuery(e.target.value)}
+          />
+        </div>
+      )}
+      {bookingHistory.length === 0 ? (
+        <div className="empty-state">
+          <CalendarClock size={28} />
+          <div className="empty-title">No appointments yet</div>
+          <div className="empty-sub">Bookings and rebooked appointments will be listed here.</div>
+        </div>
+      ) : filteredBookingHistory.length === 0 ? (
+        <div className="empty-inline">No appointments match your search.</div>
+      ) : (
+        <>
+          <div className="record-count-bar">
+            {appointmentsQuery
+              ? `Showing ${filteredBookingHistory.length} of ${bookingHistory.length} appointments`
+              : `${bookingHistory.length} appointment${bookingHistory.length === 1 ? "" : "s"} total`}
+          </div>
+          <div className="table-scroll">
+          <table className="data-table">
+          <thead>
+            <tr>
+              <th>Name</th><th>Service</th><th>Amount</th><th>Advance</th><th>Due</th><th>Booked On</th><th>Booked For</th><th>Time</th><th>Assigned to</th><th>Status</th>
+              {category === "luxlash" && <th>Infill / Full Set Sent</th>}
+              <th>Message</th><th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredBookingHistory.map((c) => {
+              const service = serviceMap[c.serviceId];
+              const refill = c.refillId ? REFILL_MAP[c.refillId] : null;
+              const refillLabel = refill ? `${refill.group} — ${refill.duration}` : null;
+              const hasBookableItem = !!service || !!refill || c.lashRemoval;
+              const status = STATUS[c.status] || STATUS.upcoming;
+              const addonNames = (c.addonIds || []).map((id) => ADDON_MAP[id]?.name).filter(Boolean);
+              const dateReminder = getAppointmentDateReminder(c);
+              const dateReminderStyle = dateReminder ? APPOINTMENT_DATE_REMINDER_STYLE[dateReminder] : null;
+              return (
+                <tr key={c.id}>
+                  <td>
+                    {c.name}
+                    {dateReminder && (
+                      <span
+                        className="chip"
+                        style={{
+                          background: dateReminderStyle.chip,
+                          color: dateReminderStyle.text,
+                          marginLeft: 6,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 3,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {dateReminder === "missed" ? <AlertTriangle size={10} /> : <Bell size={10} />}
+                        {APPOINTMENT_DATE_REMINDER_LABEL[dateReminder]}
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {service?.name || refillLabel || (c.lashRemoval ? "Lash removal only" : "—")}
+                    {refill && service && <span style={{ color: "var(--ink-muted)" }}> + Refill: {refillLabel}</span>}
+                    {c.lashRemoval && (service || refill) && <span style={{ color: "var(--ink-muted)" }}> + Lash removal</span>}
+                    {addonNames.length > 0 && <span style={{ color: "var(--ink-muted)" }}> + {addonNames.join(", ")}</span>}
+                  </td>
+                  <td>{hasBookableItem ? formatMoney(getCustomerRevenue(c, service)) : "—"}</td>
+                  <td>{hasBookableItem && c.status !== "completed" ? formatMoney(c.advance) : "—"}</td>
+                  <td>{hasBookableItem && c.status === "upcoming" ? formatMoney(getDueAmount(c, service)) : c.status === "cancelled" ? "" : "—"}</td>
+                  <td>{formatDisplayDate(c.bookingDate, "—")}</td>
+                  <td>{formatDisplayDate(c.appointmentDate, "—")}</td>
+                  <td>{formatDisplayTime(c.appointmentTime, "—")}</td>
+                  <td>{c.assignedTo || "—"}</td>
+                  <td><span className="chip" style={{ background: status.chip, color: status.text }}>{status.label}</span></td>
+                  {category === "luxlash" && (
+                    <td>
+                      {c.infillWeek2SentAt || c.infillWeek3SentAt || (c.fullsetSentDates || []).length > 0 ? (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          onClick={() => setHistoryTarget(c)}
+                          title="View sent reminder history"
+                        >
+                          <History size={14} />
+                        </button>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  )}
+                  <td>
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      onClick={() => setMessageTarget(c)}
+                      title="Send a custom WhatsApp message"
+                    >
+                      <MessageCircle size={14} />
+                    </button>
+                  </td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
+                      {c.status === "upcoming" && (
+                        <button
+                          type="button"
+                          className="icon-btn"
+                          title="Edit"
+                          onClick={() => openEditForm(c, { fromAppointments: true })}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                      )}
+                      {category === "luxlash" && (() => {
+                        const stage = getFollowUpStage(c, customers);
+                        if (stage === "reminder") {
+                          return isReminderLocked(c) ? (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-sent"
+                              disabled
+                              title="Reminder already sent — resets after 30 days, or once this customer is rebooked"
+                            >
+                              <Check size={12} /> Sent
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-pending"
+                              onClick={() => setReminderTarget(c)}
+                              title="Send WhatsApp reminder"
+                            >
+                              <Send size={12} /> Remind
+                            </button>
+                          );
+                        }
+                        if (stage === "follow") {
+                          return isFollowLocked(c) ? (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-sent"
+                              disabled
+                              title="Follow-up already sent — resets after 30 days, or once this customer is rebooked"
+                            >
+                              <Check size={12} /> Sent
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-pending"
+                              onClick={() => setFollowTarget(c)}
+                              title="Send WhatsApp follow-up check-in"
+                            >
+                              <RefreshCw size={12} /> Follow
+                            </button>
+                          );
+                        }
+                        const extensionStage = getExtensionStage(c, customers);
+                        if (extensionStage === "fullset") {
+                          return isFullsetLocked(c) ? (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-sent"
+                              disabled
+                              title="Full set offer already sent — resets after 30 days, or once this customer is rebooked"
+                            >
+                              <Check size={12} /> Sent
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-pending"
+                              onClick={() => setFullsetTarget(c)}
+                              title="Send WhatsApp full set offer"
+                            >
+                              <Scissors size={12} /> Full Set
+                            </button>
+                          );
+                        }
+                        if (extensionStage === "infill") {
+                          return isInfillLocked(c) ? (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-sent"
+                              disabled
+                              title="Infill reminder already sent — resets after 30 days, or once this customer is rebooked"
+                            >
+                              <Check size={12} /> Sent
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="reminder-btn reminder-btn-pending"
+                              onClick={() => setInfillTarget(c)}
+                              title="Send WhatsApp infill reminder"
+                            >
+                              <Sparkles size={12} /> Infill
+                            </button>
+                          );
+                        }
+                        return null;
+                      })()}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        </div>
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="view">
       <div className="view-header view-header--sticky">
@@ -221,14 +447,14 @@ export default function CategoryPage({
           <button className={`sub-tab ${subTab === "customers" ? "active" : ""}`} style={subTab === "customers" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("customers")}>
             <Users size={15} /> Customers
           </button>
+          <button className={`sub-tab ${subTab === "payments" ? "active" : ""}`} style={subTab === "payments" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("payments")}>
+            <CalendarClock size={15} /> Appointments
+          </button>
           <button className={`sub-tab ${subTab === "products" ? "active" : ""}`} style={subTab === "products" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("products")}>
             <Package size={15} /> Expenses
           </button>
           <button className={`sub-tab ${subTab === "sellItems" ? "active" : ""}`} style={subTab === "sellItems" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("sellItems")}>
             <ShoppingBag size={15} /> Sell item
-          </button>
-          <button className={`sub-tab ${subTab === "payments" ? "active" : ""}`} style={subTab === "payments" ? { background: meta.tint, color: meta.text } : {}} onClick={() => setSubTab("payments")}>
-            <CalendarClock size={15} /> Appointments
           </button>
         </div>
       </div>
@@ -240,226 +466,7 @@ export default function CategoryPage({
       ) : subTab === "sellItems" ? (
         <SellItemsPanel category={category} meta={meta} sellItems={sellItems} onChange={onSellItemsChange} />
       ) : subTab === "payments" ? (
-        <>
-          {bookingHistory.length > 0 && (
-            <div className="search-row">
-              <Search size={16} className="search-icon" />
-              <input
-                className="search-input"
-                placeholder="Search by name or service"
-                value={appointmentsQuery}
-                onChange={(e) => setAppointmentsQuery(e.target.value)}
-              />
-            </div>
-          )}
-          {bookingHistory.length === 0 ? (
-            <div className="empty-state">
-              <CalendarClock size={28} />
-              <div className="empty-title">No appointments yet</div>
-              <div className="empty-sub">Bookings and rebooked appointments will be listed here.</div>
-            </div>
-          ) : filteredBookingHistory.length === 0 ? (
-            <div className="empty-inline">No appointments match your search.</div>
-          ) : (
-            <>
-              <div className="record-count-bar">
-                {appointmentsQuery
-                  ? `Showing ${filteredBookingHistory.length} of ${bookingHistory.length} appointments`
-                  : `${bookingHistory.length} appointment${bookingHistory.length === 1 ? "" : "s"} total`}
-              </div>
-              <div className="table-scroll">
-              <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Name</th><th>Service</th><th>Amount</th><th>Advance</th><th>Due</th><th>Booked On</th><th>Booked For</th><th>Time</th><th>Assigned to</th><th>Status</th>
-                  {category === "luxlash" && <th>Infill / Full Set Sent</th>}
-                  <th>Message</th><th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredBookingHistory.map((c) => {
-                  const service = serviceMap[c.serviceId];
-                  const refill = c.refillId ? REFILL_MAP[c.refillId] : null;
-                  const refillLabel = refill ? `${refill.group} — ${refill.duration}` : null;
-                  const hasBookableItem = !!service || !!refill || c.lashRemoval;
-                  const status = STATUS[c.status] || STATUS.upcoming;
-                  const addonNames = (c.addonIds || []).map((id) => ADDON_MAP[id]?.name).filter(Boolean);
-                  const dateReminder = getAppointmentDateReminder(c);
-                  const dateReminderStyle = dateReminder ? APPOINTMENT_DATE_REMINDER_STYLE[dateReminder] : null;
-                  return (
-                    <tr key={c.id}>
-                      <td>
-                        {c.name}
-                        {dateReminder && (
-                          <span
-                            className="chip"
-                            style={{
-                              background: dateReminderStyle.chip,
-                              color: dateReminderStyle.text,
-                              marginLeft: 6,
-                              display: "inline-flex",
-                              alignItems: "center",
-                              gap: 3,
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {dateReminder === "missed" ? <AlertTriangle size={10} /> : <Bell size={10} />}
-                            {APPOINTMENT_DATE_REMINDER_LABEL[dateReminder]}
-                          </span>
-                        )}
-                      </td>
-                      <td>
-                        {service?.name || refillLabel || (c.lashRemoval ? "Lash removal only" : "—")}
-                        {refill && service && <span style={{ color: "var(--ink-muted)" }}> + Refill: {refillLabel}</span>}
-                        {c.lashRemoval && (service || refill) && <span style={{ color: "var(--ink-muted)" }}> + Lash removal</span>}
-                        {addonNames.length > 0 && <span style={{ color: "var(--ink-muted)" }}> + {addonNames.join(", ")}</span>}
-                      </td>
-                      <td>{hasBookableItem ? formatMoney(getCustomerRevenue(c, service)) : "—"}</td>
-                      <td>{hasBookableItem && c.status !== "completed" ? formatMoney(c.advance) : "—"}</td>
-                      <td>{hasBookableItem && c.status === "upcoming" ? formatMoney(getDueAmount(c, service)) : c.status === "cancelled" ? "" : "—"}</td>
-                      <td>{formatDisplayDate(c.bookingDate, "—")}</td>
-                      <td>{formatDisplayDate(c.appointmentDate, "—")}</td>
-                      <td>{formatDisplayTime(c.appointmentTime, "—")}</td>
-                      <td>{c.assignedTo || "—"}</td>
-                      <td><span className="chip" style={{ background: status.chip, color: status.text }}>{status.label}</span></td>
-                      {category === "luxlash" && (
-                        <td>
-                          {c.infillWeek2SentAt || c.infillWeek3SentAt || (c.fullsetSentDates || []).length > 0 ? (
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              onClick={() => setHistoryTarget(c)}
-                              title="View sent reminder history"
-                            >
-                              <History size={14} />
-                            </button>
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                      )}
-                      <td>
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => setMessageTarget(c)}
-                          title="Send a custom WhatsApp message"
-                        >
-                          <MessageCircle size={14} />
-                        </button>
-                      </td>
-                      <td>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
-                          {c.status === "upcoming" && (
-                            <button
-                              type="button"
-                              className="icon-btn"
-                              title="Edit"
-                              onClick={() => openEditForm(c, { fromAppointments: true })}
-                            >
-                              <Pencil size={14} />
-                            </button>
-                          )}
-                          {category === "luxlash" && (() => {
-                            const stage = getFollowUpStage(c, customers);
-                            if (stage === "reminder") {
-                              return isReminderLocked(c) ? (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-sent"
-                                  disabled
-                                  title="Reminder already sent — resets after 30 days, or once this customer is rebooked"
-                                >
-                                  <Check size={12} /> Sent
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-pending"
-                                  onClick={() => setReminderTarget(c)}
-                                  title="Send WhatsApp reminder"
-                                >
-                                  <Send size={12} /> Remind
-                                </button>
-                              );
-                            }
-                            if (stage === "follow") {
-                              return isFollowLocked(c) ? (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-sent"
-                                  disabled
-                                  title="Follow-up already sent — resets after 30 days, or once this customer is rebooked"
-                                >
-                                  <Check size={12} /> Sent
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-pending"
-                                  onClick={() => setFollowTarget(c)}
-                                  title="Send WhatsApp follow-up check-in"
-                                >
-                                  <RefreshCw size={12} /> Follow
-                                </button>
-                              );
-                            }
-                            const extensionStage = getExtensionStage(c, customers);
-                            if (extensionStage === "fullset") {
-                              return isFullsetLocked(c) ? (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-sent"
-                                  disabled
-                                  title="Full set offer already sent — resets after 30 days, or once this customer is rebooked"
-                                >
-                                  <Check size={12} /> Sent
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-pending"
-                                  onClick={() => setFullsetTarget(c)}
-                                  title="Send WhatsApp full set offer"
-                                >
-                                  <Scissors size={12} /> Full Set
-                                </button>
-                              );
-                            }
-                            if (extensionStage === "infill") {
-                              return isInfillLocked(c) ? (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-sent"
-                                  disabled
-                                  title="Infill reminder already sent — resets after 30 days, or once this customer is rebooked"
-                                >
-                                  <Check size={12} /> Sent
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="reminder-btn reminder-btn-pending"
-                                  onClick={() => setInfillTarget(c)}
-                                  title="Send WhatsApp infill reminder"
-                                >
-                                  <Sparkles size={12} /> Infill
-                                </button>
-                              );
-                            }
-                            return null;
-                          })()}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            </div>
-            </>
-          )}
-        </>
+        appointmentsPanel
       ) : (
         <>
           <div className="view-header" style={{ marginTop: 0, marginBottom: 14 }}>
