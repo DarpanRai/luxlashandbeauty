@@ -95,11 +95,11 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
     }
     if (!form.assignedTo || !form.assignedTo.trim()) {
       next.assignedTo = "Assigned staff is required.";
-    } else if (form.appointmentTime && form.appointmentDate) {
-      // Same staff member, same date, overlapping time window — across every
-      // category, not just this one, since a person can't be in two places at
-      // once. A makeup booking's window spans its whole service duration (see
-      // MAKEUP_SERVICE_DURATION_HOURS); anything else is a single point in time.
+    } else if (category !== "makeup" && form.appointmentTime && form.appointmentDate) {
+      // Same staff member, same date, overlapping time window. Makeup is
+      // deliberately exempt — one artist can be assigned to multiple makeup
+      // customers at the same date and time (e.g. a bridal party moving through
+      // touch-ups together), so this check only ever runs for non-makeup bookings.
       const normalizedAssignee = form.assignedTo.trim().toLowerCase();
       const newWindow = getBookingWindow({ category, serviceId: form.serviceId, appointmentTime: form.appointmentTime });
       const conflictingBooking = (allCustomers || []).find(
