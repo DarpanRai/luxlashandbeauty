@@ -12,11 +12,14 @@ const PHONE_DIGITS_MAX = 15;
 // bridal packages don't offer them.
 const MAKEUP_ADDON_SERVICE_ID = "s-m3";
 
-// Doing someone's makeup ties the artist up for the whole service, not just the
-// booked start time — a bridal job (Master or Senior artist, s-m1/s-m2) runs 3.5
-// hours, Party Makeup (s-m3) runs 2.5. LuxLash services have no duration modeled
-// here, so they're still treated as a single point in time (see getBookingWindow).
+// Doing someone's makeup or lashes ties the artist up for the whole service, not
+// just the booked start time — a bridal job (Master or Senior artist, s-m1/s-m2)
+// runs 3.5 hours, Party Makeup (s-m3) runs 2.5. Every LuxLash service is treated
+// as a flat 2 hours regardless of which one (no per-service split there, unlike
+// makeup) — covers lash removal / refill add-ons too since those don't get their
+// own separate slot.
 const MAKEUP_SERVICE_DURATION_HOURS = { "s-m1": 3.5, "s-m2": 3.5, "s-m3": 2.5 };
+const LUXLASH_DURATION_HOURS = 2;
 
 const timeToMinutes = (timeStr) => {
   const [h, m] = (timeStr || "").split(":").map(Number);
@@ -24,13 +27,18 @@ const timeToMinutes = (timeStr) => {
 };
 
 // A booking "occupies" its staff member from appointmentTime for however long the
-// service takes — [start, end]. Anything without a known duration (LuxLash, or a
-// makeup record with no matching service) collapses to a zero-width point at its
-// start time, which still conflicts with an exact-time match but doesn't claim any
-// time either side of it.
+// service takes — [start, end]. Anything without a known duration (a makeup record
+// with no matching service, or a category outside makeup/luxlash) collapses to a
+// zero-width point at its start time, which still conflicts with an exact-time
+// match but doesn't claim any time either side of it.
 const getBookingWindow = (c) => {
   const start = timeToMinutes(c.appointmentTime);
-  const hours = c.category === "makeup" ? MAKEUP_SERVICE_DURATION_HOURS[c.serviceId] : undefined;
+  const hours =
+    c.category === "makeup"
+      ? MAKEUP_SERVICE_DURATION_HOURS[c.serviceId]
+      : c.category === "luxlash"
+      ? LUXLASH_DURATION_HOURS
+      : undefined;
   return { start, end: hours ? start + hours * 60 : start };
 };
 
