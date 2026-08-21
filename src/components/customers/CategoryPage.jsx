@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, LayoutDashboard, Users, Package, ShoppingBag, CalendarClock, Pencil, Send, Check, MessageCircle, RefreshCw, Sparkles, Scissors, History } from "lucide-react";
+import { Plus, Search, LayoutDashboard, Users, Package, ShoppingBag, CalendarClock, Pencil, Send, Check, MessageCircle, RefreshCw, Sparkles, Scissors, History, Bell, AlertTriangle } from "lucide-react";
 import { CATEGORY } from "../../constants/categories.js";
 import { STATUS } from "../../constants/status.js";
 import CategoryDashboard from "../dashboard/CategoryDashboard.jsx";
@@ -24,7 +24,22 @@ import {
   isFullsetLocked,
   getExtensionStage,
   getInfillWeekBucket,
+  getAppointmentDateReminder,
 } from "../../utils/reminder.js";
+
+const APPOINTMENT_DATE_REMINDER_LABEL = {
+  today: "Appointment today",
+  tomorrow: "Appointment tomorrow",
+  missed: "Appointment missed",
+};
+// Distinct from the Status column's colors (Upcoming/Completed/Cancelled) even
+// though they sit right next to each other — this badge is about the *date*,
+// Status is about the record's own state.
+const APPOINTMENT_DATE_REMINDER_STYLE = {
+  today: { chip: "#F6EDD8", text: "#7C5C1C" },
+  tomorrow: { chip: "#E1EEE7", text: "#276148" },
+  missed: { chip: "#F5E6E1", text: "#B3452F" },
+};
 
 export default function CategoryPage({
   category,
@@ -269,9 +284,30 @@ export default function CategoryPage({
                   const hasBookableItem = !!service || !!refill || c.lashRemoval;
                   const status = STATUS[c.status] || STATUS.upcoming;
                   const addonNames = (c.addonIds || []).map((id) => ADDON_MAP[id]?.name).filter(Boolean);
+                  const dateReminder = getAppointmentDateReminder(c);
+                  const dateReminderStyle = dateReminder ? APPOINTMENT_DATE_REMINDER_STYLE[dateReminder] : null;
                   return (
                     <tr key={c.id}>
-                      <td>{c.name}</td>
+                      <td>
+                        {c.name}
+                        {dateReminder && (
+                          <span
+                            className="chip"
+                            style={{
+                              background: dateReminderStyle.chip,
+                              color: dateReminderStyle.text,
+                              marginLeft: 6,
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: 3,
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {dateReminder === "missed" ? <AlertTriangle size={10} /> : <Bell size={10} />}
+                            {APPOINTMENT_DATE_REMINDER_LABEL[dateReminder]}
+                          </span>
+                        )}
+                      </td>
                       <td>
                         {service?.name || refillLabel || (c.lashRemoval ? "Lash removal only" : "—")}
                         {refill && service && <span style={{ color: "var(--ink-muted)" }}> + Refill: {refillLabel}</span>}

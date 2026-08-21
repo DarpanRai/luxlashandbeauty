@@ -21,6 +21,9 @@ export interface Customer {
   /** Optional — drives the birthday reminder shown on the customer card only. */
   birthday?: string; // YYYY-MM-DD
   appointmentDate: string; // YYYY-MM-DD — the date the service is/was booked FOR
+  appointmentTime?: string; // HH:MM (24hr) — from <input type="time">
+  /** Staff member's name — either picked from the staff list or freehand-typed. Matched case-insensitively for double-booking conflict checks (see CustomerFormModal). */
+  assignedTo?: string;
   /** The date this appointment record was first created — the date it was booked ON. Set once, never changes on edits. */
   bookingDate?: string; // YYYY-MM-DD
   serviceId: string;

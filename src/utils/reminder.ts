@@ -113,6 +113,25 @@ export const isFullsetLocked = (customer: Pick<Customer, "fullsetSentDates">): b
   return !!lastSentAt && daysSince(lastSentAt) < FULLSET_RESEND_AFTER_DAYS;
 };
 
+export type AppointmentDateReminder = "today" | "tomorrow" | "missed" | null;
+
+// Purely about the appointment's own scheduled date vs today — unrelated to the
+// completed-appointment follow-up/infill logic above (which only ever looks at
+// *completed* appointments). This is the opposite case: a still-"upcoming"
+// appointment that's imminent, or already past its date without ever being marked
+// completed or cancelled. "missed" only ever fires for a genuinely past date on a
+// record still sitting in "upcoming" — completing or cancelling it clears it.
+export const getAppointmentDateReminder = (
+  customer: Pick<Customer, "status" | "appointmentDate">
+): AppointmentDateReminder => {
+  if (customer.status !== "upcoming" || !customer.appointmentDate) return null;
+  const days = daysUntil(customer.appointmentDate);
+  if (days < 0) return "missed";
+  if (days === 0) return "today";
+  if (days === 1) return "tomorrow";
+  return null;
+};
+
 export type ExtensionStage = "infill" | "fullset" | null;
 
 // Which stage of post-service outreach (if any) applies to an extension-set appointment
