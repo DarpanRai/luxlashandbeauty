@@ -1,49 +1,41 @@
 import { useMemo, useState } from "react";
-import { Plus, Search, ShoppingBag, Pencil } from "lucide-react";
+import { Plus, Search, ShoppingBag } from "lucide-react";
 import { generateId } from "../../utils/id.js";
 import { formatMoney } from "../../utils/format.js";
 import { getMonthKey, getMonthLabel, getMonthOptions, getTodayISO, formatDisplayDate } from "../../utils/date.js";
 import SellItemFormModal from "./SellItemFormModal.jsx";
 import { useToast } from "../../context/ToastContext.jsx";
 
+// Add-only, deliberately — a recorded sale already moved stock quantity once
+// (see handleSave), and there's no UI for un-doing or re-doing that, so editing a
+// past sale was removed rather than left half-correct.
 export default function SellItemsPanel({ category, meta, sellItems, onChange, products, onProductsChange }) {
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [query, setQuery] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(getTodayISO()));
   const notify = useToast();
-  const editingItem = editingId ? sellItems.find((p) => p.id === editingId) : null;
 
   const stockItems = useMemo(() => (products || []).filter((p) => p.stockQuantity != null && p.stockQuantity > 0), [products]);
 
   const handleSave = (data) => {
-    if (editingId) {
-      onChange(sellItems.map((p) => (p.id === editingId ? { ...p, name: data.name.trim(), brand: data.brand.trim(), price: Number(data.price) || 0, date: data.date } : p)));
-      notify("Sell item updated");
-    } else {
-      const quantity = Number(data.quantity) || 0;
-      onChange([
-        ...sellItems,
-        { id: generateId(), category, name: data.name.trim(), brand: data.brand.trim(), price: Number(data.price) || 0, date: data.date, productId: data.productId, quantity },
-      ]);
-      // Only the stocked quantity moves — cost/price on the Expenses/Stock record is untouched.
-      if (data.productId && onProductsChange) {
-        onProductsChange(
-          (products || []).map((p) =>
-            p.id === data.productId ? { ...p, stockQuantity: Math.max(0, (p.stockQuantity || 0) - quantity) } : p
-          )
-        );
-      }
-      notify("Sell item added — stock updated");
+    const quantity = Number(data.quantity) || 0;
+    onChange([
+      ...sellItems,
+      { id: generateId(), category, name: data.name.trim(), brand: data.brand.trim(), price: Number(data.price) || 0, date: data.date, productId: data.productId, quantity },
+    ]);
+    // Only the stocked quantity moves — cost/price on the Expenses/Stock record is untouched.
+    if (data.productId && onProductsChange) {
+      onProductsChange(
+        (products || []).map((p) =>
+          p.id === data.productId ? { ...p, stockQuantity: Math.max(0, (p.stockQuantity || 0) - quantity) } : p
+        )
+      );
     }
+    notify("Sell item added — stock updated");
     setFormOpen(false);
-    setEditingId(null);
   };
 
-  const openAddForm = () => {
-    setEditingId(null);
-    setFormOpen(true);
-  };
+  const openAddForm = () => setFormOpen(true);
 
   const monthOptions = useMemo(() => getMonthOptions(sellItems.map((p) => getMonthKey(p.date))), [sellItems]);
 
@@ -87,7 +79,7 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange, pr
         <>
           <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>Name</th><th>Brand name</th><th>Quantity</th><th>Price</th><th>Date</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Brand name</th><th>Quantity</th><th>Price</th><th>Date</th></tr></thead>
             <tbody>
               {filteredItems.map((p) => (
                 <tr key={p.id}>
@@ -96,11 +88,6 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange, pr
                   <td>{p.quantity ?? "—"}</td>
                   <td>{formatMoney(p.price)}</td>
                   <td>{formatDisplayDate(p.date, "—")}</td>
-                  <td>
-                    <div className="card-actions">
-                      <button className="icon-btn" onClick={() => { setEditingId(p.id); setFormOpen(true); }}><Pencil size={14} /></button>
-                    </div>
-                  </td>
                 </tr>
               ))}
             </tbody>
@@ -114,7 +101,7 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange, pr
       )}
 
       {formOpen && (
-        <SellItemFormModal meta={meta} initial={editingItem} stockItems={stockItems} onCancel={() => { setFormOpen(false); setEditingId(null); }} onSave={handleSave} />
+        <SellItemFormModal meta={meta} stockItems={stockItems} onCancel={() => setFormOpen(false)} onSave={handleSave} />
       )}
     </div>
   );
