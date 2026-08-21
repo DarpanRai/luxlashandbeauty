@@ -81,7 +81,7 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
             <thead><tr><th>Name</th>{!isStudio && <th>Brand name</th>}<th>Cost</th><th>Date</th>{!isStudio && <th>Added to stock</th>}</tr></thead>
             <tbody>
               {filteredProducts.map((p) => {
-                const inStock = p.stockQuantity != null && p.stockQuantity > 0;
+                const inStock = p.stockQuantity != null;
                 return (
                   <tr key={p.id}>
                     <td>{p.name}</td>
