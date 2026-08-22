@@ -13,8 +13,9 @@ export default function ProductFormModal({ meta, category, initial, onCancel, on
           date: initial.date || getTodayISO(),
           addToStock: initial.stockQuantity != null,
           stockQuantity: initial.stockQuantity ?? "",
+          sellable: !!initial.sellable,
         }
-      : { name: "", brand: "", cost: "", date: getTodayISO(), addToStock: false, stockQuantity: "" }
+      : { name: "", brand: "", cost: "", date: getTodayISO(), addToStock: false, stockQuantity: "", sellable: false }
   );
 
   const setField = (key, value) => setForm((f) => ({ ...f, [key]: value }));
@@ -60,7 +61,9 @@ export default function ProductFormModal({ meta, category, initial, onCancel, on
                   <input
                     type="checkbox"
                     checked={form.addToStock}
-                    onChange={(e) => setField("addToStock", e.target.checked)}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, addToStock: e.target.checked, sellable: e.target.checked ? f.sellable : false }))
+                    }
                   />
                   Add this item to stock
                 </label>
@@ -81,6 +84,20 @@ export default function ProductFormModal({ meta, category, initial, onCancel, on
                 required
               />
             </label>
+          )}
+          {!isStudio && form.addToStock && (
+            <div className="field">
+              <div className="addon-list">
+                <label className="addon-option">
+                  <input
+                    type="checkbox"
+                    checked={form.sellable}
+                    onChange={(e) => setField("sellable", e.target.checked)}
+                  />
+                  Sellable item (offer this in Sell Item)
+                </label>
+              </div>
+            </div>
           )}
         </div>
         <div className="modal-footer">

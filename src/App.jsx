@@ -15,6 +15,7 @@ import CategoryPage from "./components/customers/CategoryPage.jsx";
 import StaffPage from "./components/staff/StaffPage.jsx";
 import GeneralExpensesPage from "./components/expenses/GeneralExpensesPage.jsx";
 import TeamAccountsPage from "./components/team/TeamAccountsPage.jsx";
+import AiAssistantWidget from "./components/assistant/AiAssistantWidget.jsx";
 
 const VIEW_PATHS = {
   overview: "dashboard",
@@ -327,6 +328,25 @@ export default function App() {
             )}
         </main>
       </div>
+
+      {role === "owner" && (
+        <AiAssistantWidget
+          role={role}
+          customers={customers}
+          setCustomers={setCustomers}
+          staff={staff}
+          setStaff={setStaff}
+          products={products}
+          setProducts={setProducts}
+          studioExpenses={studioExpenses}
+          setStudioExpenses={setStudioExpenses}
+          sellItems={sellItems}
+          setSellItems={setSellItems}
+          services={services}
+          staffSalaries={staffSalaries}
+          staffIncentives={staffIncentives}
+        />
+      )}
 
       {logoutConfirmOpen && (
         <ConfirmDialog

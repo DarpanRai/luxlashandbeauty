@@ -16,7 +16,13 @@ export default function SellItemsPanel({ category, meta, sellItems, onChange, pr
   const [selectedMonth, setSelectedMonth] = useState(() => getMonthKey(getTodayISO()));
   const notify = useToast();
 
-  const stockItems = useMemo(() => (products || []).filter((p) => p.stockQuantity != null && p.stockQuantity > 0), [products]);
+  // Only items explicitly marked sellable when they were stocked show up here —
+  // being in stock isn't enough on its own (e.g. internal-use consumables that
+  // are tracked for cost but never sold to a customer).
+  const stockItems = useMemo(
+    () => (products || []).filter((p) => p.stockQuantity != null && p.stockQuantity > 0 && p.sellable),
+    [products]
+  );
 
   const handleSave = (data) => {
     const quantity = Number(data.quantity) || 0;

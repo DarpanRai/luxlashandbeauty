@@ -25,7 +25,7 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
         price: 0,
         cost: Number(data.cost) || 0,
         date: data.date,
-        ...(data.addToStock ? { stockQuantity: Number(data.stockQuantity) } : {}),
+        ...(data.addToStock ? { stockQuantity: Number(data.stockQuantity), sellable: !!data.sellable } : {}),
       },
     ]);
     notify(data.addToStock ? "Expense added and stocked" : "Expense added");
@@ -78,7 +78,7 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
         <>
           <div className="table-scroll">
           <table className="data-table">
-            <thead><tr><th>Name</th>{!isStudio && <th>Brand name</th>}<th>Cost</th><th>Date</th>{!isStudio && <th>Added to stock</th>}</tr></thead>
+            <thead><tr><th>Name</th>{!isStudio && <th>Brand name</th>}<th>Cost</th><th>Date</th>{!isStudio && <th>Added to stock</th>}{!isStudio && <th>Sellable</th>}</tr></thead>
             <tbody>
               {filteredProducts.map((p) => {
                 const inStock = p.stockQuantity != null;
@@ -96,6 +96,17 @@ export default function ProductsPanel({ category, meta, products, onChange }) {
                           </span>
                         ) : (
                           <span style={{ color: "var(--ink-muted)" }}>No</span>
+                        )}
+                      </td>
+                    )}
+                    {!isStudio && (
+                      <td>
+                        {inStock && p.sellable ? (
+                          <span className="chip" style={{ background: "#E1EEE7", color: "#276148", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <Check size={11} /> Yes
+                          </span>
+                        ) : (
+                          <span style={{ color: "var(--ink-muted)" }}>{inStock ? "No" : "—"}</span>
                         )}
                       </td>
                     )}

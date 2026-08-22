@@ -58,6 +58,10 @@ export interface Product {
   cost: number;
   /** Set only when this expense was also added to stock — its presence (not just a truthy value) is what makes an item show up in the Stock tab. */
   stockQuantity?: number;
+  /** Only meaningful when stocked — marks the item as offerable in Sell Item, separate from just being tracked in stock (e.g. internal-use consumables are stocked but never sold). */
+  sellable?: boolean;
+  /** Non-sellable items only — running total consumed via StockPanel's "Use stock" control. Sellable items track their equivalent ("sold") by summing SellItem records instead, since that's already the source of truth for sales. */
+  usedQuantity?: number;
   date: string; // YYYY-MM-DD — the month it's counted in for expense totals
 }
 
