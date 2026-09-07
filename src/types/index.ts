@@ -31,6 +31,9 @@ export interface Customer {
   lashRemoval?: boolean;
   /** A refill option id (see constants/refills.js) — when set, serviceId is no longer required (LuxLash only). */
   refillId?: string;
+  /** Free-text extra service, name + amount — Makeup only. The amount counts toward total service revenue only when this name is non-empty, same rule the form enforces when clearing the field. */
+  additionalService?: string;
+  additionalServiceAmount?: number;
   discount: number;
   /** Amount already collected upfront — a portion of the total, not added on top of it. */
   advance: number;

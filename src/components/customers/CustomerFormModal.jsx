@@ -78,6 +78,8 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
           serviceId: services[0]?.id || "",
           lashRemoval: false,
           refillId: "",
+          additionalService: "",
+          additionalServiceAmount: "",
           discount: 0,
           advance: 0,
           addonIds: [],
@@ -203,7 +205,7 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
         : advance > 0
         ? initial?.advanceDate || getTodayISO()
         : undefined;
-    onSave({ ...form, discount: Number(form.discount) || 0, advance, advanceDate });
+    onSave({ ...form, discount: Number(form.discount) || 0, advance, advanceDate, additionalServiceAmount: Number(form.additionalServiceAmount) || 0 });
   };
 
   return (
@@ -412,6 +414,39 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
             </select>
             {errors.serviceId && <span className="field-error">{errors.serviceId}</span>}
           </label>
+
+          {category === "makeup" && (
+            <div className="field">
+              <span className="label">Additional service <span className="label-hint">(optional)</span></span>
+              <div style={{ display: "flex", gap: 10 }}>
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  type="text"
+                  value={form.additionalService || ""}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setForm((f) => ({ ...f, additionalService: value, additionalServiceAmount: value.trim() ? f.additionalServiceAmount : "" }));
+                  }}
+                  placeholder="e.g. Groom Makeup"
+                  disabled={locked}
+                />
+                {form.additionalService && form.additionalService.trim() && (
+                  <input
+                    className="input"
+                    style={{ flex: 1 }}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={form.additionalServiceAmount || ""}
+                    onChange={(e) => setField("additionalServiceAmount", e.target.value)}
+                    placeholder="Amount"
+                    disabled={locked}
+                  />
+                )}
+              </div>
+            </div>
+          )}
 
           {category === "luxlash" && (
             <label className="field">

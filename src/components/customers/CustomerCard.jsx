@@ -73,6 +73,9 @@ export default function CustomerCard({ customer, meta, service, onEdit, onDelete
               + {customer.addonIds.map((id) => ADDON_MAP[id]?.name).filter(Boolean).join(", ")}
             </div>
           )}
+          {customer.additionalService && customer.additionalService.trim() && (
+            <div className="cust-addons">+ {customer.additionalService}: {formatMoney(customer.additionalServiceAmount)}</div>
+          )}
           {customer.status === "upcoming" && Number(customer.advance) > 0 && (
             <div className="cust-addons">
               Advance {formatMoney(customer.advance)} · Due {formatMoney(getDueAmount(customer, service))}

@@ -23,18 +23,31 @@ export const getLashRemovalTotal = (customer: Pick<Customer, "lashRemoval">): nu
 export const getRefillTotal = (customer: Pick<Customer, "refillId">): number =>
   (customer.refillId && REFILL_MAP[customer.refillId]?.price) || 0;
 
+// Makeup-only extra service (free-text name + amount, set from CustomerFormModal). Only
+// counts once a name is actually entered — clearing the name also clears the amount on
+// the form side, but this guard keeps stale/leftover data from silently counting too.
+export const getAdditionalServiceTotal = (customer: Pick<Customer, "additionalService" | "additionalServiceAmount">): number =>
+  customer.additionalService && customer.additionalService.trim() ? Number(customer.additionalServiceAmount) || 0 : 0;
+
 // The total revenue for an appointment — service price minus discount, plus add-ons, plus
-// lash removal and/or a refill if added. An advance payment is already part of this total
-// (collected early), never added on top of it.
+// lash removal and/or a refill if added, plus any additional service amount. An advance
+// payment is already part of this total (collected early), never added on top of it.
 export const getCustomerRevenue = (
-  customer: Pick<Customer, "discount" | "addonIds" | "lashRemoval" | "refillId">,
+  customer: Pick<Customer, "discount" | "addonIds" | "lashRemoval" | "refillId" | "additionalService" | "additionalServiceAmount">,
   service?: Pick<Service, "price">
 ): number =>
-  getServicePrice(customer, service) + getAddonsTotal(customer) + getLashRemovalTotal(customer) + getRefillTotal(customer);
+  getServicePrice(customer, service) +
+  getAddonsTotal(customer) +
+  getLashRemovalTotal(customer) +
+  getRefillTotal(customer) +
+  getAdditionalServiceTotal(customer);
 
 // What's still owed: the total minus whatever advance has already been collected. Never negative.
 export const getDueAmount = (
-  customer: Pick<Customer, "discount" | "addonIds" | "advance" | "lashRemoval" | "refillId">,
+  customer: Pick<
+    Customer,
+    "discount" | "addonIds" | "advance" | "lashRemoval" | "refillId" | "additionalService" | "additionalServiceAmount"
+  >,
   service?: Pick<Service, "price">
 ): number => Math.max(0, getCustomerRevenue(customer, service) - (Number(customer.advance) || 0));
 
@@ -59,7 +72,16 @@ export interface RevenueSplitEntry {
 export const getRevenueSplit = (
   customer: Pick<
     Customer,
-    "status" | "discount" | "addonIds" | "advance" | "lashRemoval" | "refillId" | "advanceDate" | "appointmentDate"
+    | "status"
+    | "discount"
+    | "addonIds"
+    | "advance"
+    | "lashRemoval"
+    | "refillId"
+    | "advanceDate"
+    | "appointmentDate"
+    | "additionalService"
+    | "additionalServiceAmount"
   >,
   service?: Pick<Service, "price">
 ): RevenueSplitEntry[] => {
