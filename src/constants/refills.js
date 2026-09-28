@@ -3,7 +3,7 @@
 export const REFILL_OPTIONS = [
   { id: "r-classic-40", group: "Classic Refill", duration: "40 min", price: 1400 },
   { id: "r-classic-60", group: "Classic Refill", duration: "60 min (standard)", price: 1930 },
-  { id: "r-classic-75", group: "Classic Refill", duration: "75 min", price: 1930 },
+  { id: "r-classic-75", group: "Classic Refill", duration: "75 min", price: 2625 },
   { id: "r-light2d-40", group: "Light Volume (2D) Refill", duration: "40 min", price: 1490 },
   { id: "r-light2d-60", group: "Light Volume (2D) Refill", duration: "60 min (standard)", price: 2290 },
   { id: "r-light2d-75", group: "Light Volume (2D) Refill", duration: "75 min", price: 2785 },
