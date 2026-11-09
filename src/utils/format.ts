@@ -20,8 +20,12 @@ export const getAddonsTotal = (customer: Pick<Customer, "addonIds">): number =>
 export const getLashRemovalTotal = (customer: Pick<Customer, "lashRemoval">): number =>
   customer.lashRemoval ? LASH_REMOVAL_PRICE : 0;
 
-export const getRefillTotal = (customer: Pick<Customer, "refillId">): number =>
-  (customer.refillId && REFILL_MAP[customer.refillId]?.price) || 0;
+// A discount normally comes off the main service. On a refill-only booking (no main
+// service) there's nothing else for it to apply to, so it comes off the refill instead.
+export const getRefillTotal = (customer: Pick<Customer, "refillId"> & Partial<Pick<Customer, "discount">>, service?: Pick<Service, "price">): number => {
+  const price = (customer.refillId && REFILL_MAP[customer.refillId]?.price) || 0;
+  return service ? price : Math.max(0, price - (customer.discount || 0));
+};
 
 // Makeup-only extra service (free-text name + amount, set from CustomerFormModal). Only
 // counts once a name is actually entered — clearing the name also clears the amount on
@@ -39,7 +43,7 @@ export const getCustomerRevenue = (
   getServicePrice(customer, service) +
   getAddonsTotal(customer) +
   getLashRemovalTotal(customer) +
-  getRefillTotal(customer) +
+  getRefillTotal(customer, service) +
   getAdditionalServiceTotal(customer);
 
 // What's still owed: the total minus whatever advance has already been collected. Never negative.

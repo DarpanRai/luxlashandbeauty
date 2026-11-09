@@ -172,7 +172,7 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
   // Same rule as lash removal — picking a refill defaults the main service back to
   // "none"; the customer can still pick a service afterward to combine them.
   const handleRefillSelect = (value) => {
-    setForm((f) => ({ ...f, refillId: value, serviceId: value ? "" : f.serviceId }));
+    setForm((f) => ({ ...f, refillId: value, serviceId: value ? "" : f.serviceId, discount: 0 }));
   };
 
   const handleServiceSelect = (value) => {
@@ -504,7 +504,7 @@ export default function CustomerFormModal({ meta, category, initial, prefill, se
             </label>
           )}
 
-          {form.serviceId && (
+          {(form.serviceId || form.refillId) && (
             <label className="field">
               <span className="label">Discount</span>
               <input
